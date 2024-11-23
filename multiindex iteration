@@ -1,0 +1,21 @@
+from sklearn.preprocessing import StandardScaler
+
+# Create new DataFrame to store scaled values
+scaled_df = pd.DataFrame(index=df.index, columns=df.columns)
+
+# Apply scaler for each Ticker and Metric
+for ticker in df.columns.levels[0]:  # Iterate over unique tickers
+    for metric in df.columns.levels[1]:  # Iterate over unique metrics
+        # Select the column for the current Ticker and Metric
+        column_data = df[(ticker, metric)]
+        
+        # Apply StandardScaler to the column
+        scaler = StandardScaler()
+        scaled_data = scaler.fit_transform(column_data.values.reshape(-1, 1)).flatten()
+        
+        # Store the scaled data in the new DataFrame
+        scaled_df[(ticker, metric)] = scaled_data
+
+# Ensure proper MultiIndex structure
+scaled_df.columns = df.columns
+print(scaled_df)
