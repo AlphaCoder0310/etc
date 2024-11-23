@@ -92,4 +92,10 @@ axes_combined[0].grid(True)
 # 2. Boxplot of Scaled Log Returns (Combined for X_scaled and y_scaled)
 combined_data = X_scaled.join(y_scaled, how="outer", rsuffix="_y")  # Combine both datasets
 sns.boxplot(data=combined_data, ax=axes_combined[1], palette="Set3")
-axes_combined[1].set_title("Combined Boxplot of Sc
+axes_combined[1].set_title("Combined Boxplot of Scaled Log Returns (X_scaled and y_scaled)")
+axes_combined[1].set_xlabel("Assets")
+axes_combined[1].set_ylabel("Scaled Log Returns")
+
+# Adjust layout to avoid overlap
+plt.tight_layout()
+plt.show()
