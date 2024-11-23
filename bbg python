@@ -1,0 +1,88 @@
+import blpapi
+from blpapi import SessionOptions, Session
+import pandas as pd
+import datetime
+
+# Bloomberg session setup
+def create_bloomberg_session():
+    # Configure Bloomberg API session
+    session_options = SessionOptions()
+    session_options.setServerHost("localhost")  # Default host for Bloomberg API
+    session_options.setServerPort(8194)        # Default port for Bloomberg API
+    
+    # Start the session
+    session = Session(session_options)
+    if not session.start():
+        raise Exception("Failed to start Bloomberg session.")
+    if not session.openService("//blp/refdata"):
+        raise Exception("Failed to open Bloomberg reference data service.")
+    return session
+
+def get_historical_data(session, ticker, start_date, end_date):
+    # Open the Bloomberg Reference Data Service
+    ref_data_service = session.getService("//blp/refdata")
+    
+    # Create the request for historical data
+    request = ref_data_service.createRequest("HistoricalDataRequest")
+    request.set("securities", ticker)  # Add the stock ticker
+    request.append("fields", "PX_OPEN")   # Open price
+    request.append("fields", "PX_HIGH")   # High price
+    request.append("fields", "PX_LOW")    # Low price
+    request.append("fields", "PX_LAST")   # Close price
+    request.append("fields", "PX_VOLUME") # Volume
+    request.set("startDate", start_date)  # Start date (YYYYMMDD)
+    request.set("endDate", end_date)      # End date (YYYYMMDD)
+    request.set("adjustmentSplit", True)  # Adjust for corporate actions (e.g., splits)
+    request.set("adjustmentAbnormal", True)  # Adjust for abnormal events
+    request.set("adjustmentNormal", True)    # Adjust for normal events
+    
+    # Send the request
+    session.sendRequest(request)
+    
+    # Parse the response
+    data = []
+    while True:
+        event = session.nextEvent()
+        for msg in event:
+            if msg.messageType() == "HistoricalDataResponse":
+                security_data = msg.getElement("securityData")
+                field_data_array = security_data.getElement("fieldData")
+                for field_data in field_data_array.values():
+                    data.append({
+                        "date": field_data.getElementAsDatetime("date"),
+                        "open": field_data.getElementAsFloat("PX_OPEN"),
+                        "high": field_data.getElementAsFloat("PX_HIGH"),
+                        "low": field_data.getElementAsFloat("PX_LOW"),
+                        "close": field_data.getElementAsFloat("PX_LAST"),
+                        "volume": field_data.getElementAsFloat("PX_VOLUME"),
+                    })
+        if event.eventType() == blpapi.Event.RESPONSE:
+            break
+    
+    # Convert data to Pandas DataFrame
+    df = pd.DataFrame(data)
+    return df
+
+# Main function
+if __name__ == "__main__":
+    # Bloomberg ticker for Tencent Holdings Ltd.
+    ticker = "0700 HK Equity"  # Bloomberg ticker format
+    start_date = "20100101"    # Start date in YYYYMMDD format
+    end_date = "20231231"      # End date in YYYYMMDD format
+    
+    try:
+        # Create session
+        session = create_bloomberg_session()
+        
+        # Retrieve historical data
+        historical_data = get_historical_data(session, ticker, start_date, end_date)
+        
+        # Save to CSV file
+        historical_data.to_csv(f"{ticker.replace(' ', '_')}_historical_data.csv", index=False)
+        print(f"Data saved to {ticker.replace(' ', '_')}_historical_data.csv")
+        
+        # Display the data
+        print(historical_data.head())
+    
+    except Exception as e:
+        print(f"An error occurred: {e}")
