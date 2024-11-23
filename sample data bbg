@@ -1,0 +1,171 @@
+@dataclass
+class SampleData:
+    """
+    Retrieves and stores historical data for assets specified in HedgeParameters.
+
+    Attributes:
+        parameters (HedgeParameters): The hedge parameters object containing asset information and settings.
+        historical_data (Dict[str, pd.DataFrame]): A dictionary mapping asset identifiers to their historical data DataFrames.
+    """
+    parameters: HedgeParameters
+    historical_data: Dict[str, pd.DataFrame] = field(init=False, default_factory=dict)
+
+    def __post_init__(self):
+        """
+        Initializes the SampleData by fetching historical data based on the HedgeParameters.
+        """
+        self.retrieve_historical_data()
+
+    def create_bloomberg_session(self) -> Session:
+        """
+        Creates and starts a Bloomberg API session.
+
+        Returns:
+            Session: The Bloomberg session object.
+        """
+        session_options = SessionOptions()
+        session_options.setServerHost("localhost")  # Default Bloomberg API host
+        session_options.setServerPort(8194)        # Default Bloomberg API port
+
+        session = Session(session_options)
+        if not session.start():
+            raise Exception("Failed to start Bloomberg session.")
+        if not session.openService("//blp/refdata"):
+            raise Exception("Failed to open Bloomberg reference data service.")
+        return session
+
+    def retrieve_historical_data(self):
+        """
+        Fetches historical data for all assets in the initial portfolio and hedge constituents using Bloomberg API.
+        """
+        # Extract asset identifiers from initial portfolio and hedge constituents
+        initial_assets = [pos.identifier for pos in self.parameters.initial_portfolio.positions]
+        hedge_assets = self.parameters.hedge_constituents
+        all_assets = list(set(initial_assets + hedge_assets))  # Remove duplicates
+
+        print(f"Fetching historical data for {len(all_assets)} assets...")
+
+        # Define the start and end dates for historical data retrieval
+        start_date = self.parameters.observation_start_date.strftime("%Y%m%d")  # Bloomberg format: YYYYMMDD
+        end_date = date.today().strftime("%Y%m%d")  # Bloomberg format: YYYYMMDD
+
+        # Map sampling_period to Bloomberg interval
+        interval_mapping = {
+            'daily': "DAILY",
+            'weekly': "WEEKLY",
+            'monthly': "MONTHLY"
+        }
+        interval = interval_mapping.get(self.parameters.sampling_period.lower(), "DAILY")
+
+        # Create Bloomberg session
+        session = self.create_bloomberg_session()
+
+        try:
+            # Open Bloomberg Reference Data Service
+            ref_data_service = session.getService("//blp/refdata")
+
+            for asset in all_assets:
+                # Create historical data request
+                request = ref_data_service.createRequest("HistoricalDataRequest")
+                request.getElement("securities").appendValue(asset)
+                request.getElement("fields").appendValue("PX_OPEN")
+                request.getElement("fields").appendValue("PX_HIGH")
+                request.getElement("fields").appendValue("PX_LOW")
+                request.getElement("fields").appendValue("PX_LAST")
+                request.getElement("fields").appendValue("PX_VOLUME")
+                request.set("startDate", start_date)
+                request.set("endDate", end_date)
+                request.set("periodicitySelection", interval)
+
+                # Send the request
+                session.sendRequest(request)
+
+                # Parse the response
+                data = []
+                while True:
+                    event = session.nextEvent()
+                    for msg in event:
+                        if msg.messageType() == "HistoricalDataResponse":
+                            security_data = msg.getElement("securityData")
+                            field_data_array = security_data.getElement("fieldData")
+                            for field_data in field_data_array.values():
+                                data.append({
+                                    "date": field_data.getElementAsDatetime("date"),
+                                    "open": field_data.getElementAsFloat("PX_OPEN"),
+                                    "high": field_data.getElementAsFloat("PX_HIGH"),
+                                    "low": field_data.getElementAsFloat("PX_LOW"),
+                                    "close": field_data.getElementAsFloat("PX_LAST"),
+                                    "volume": field_data.getElementAsFloat("PX_VOLUME"),
+                                })
+                    if event.eventType() == blpapi.Event.RESPONSE:
+                        break
+
+                # Convert data to Pandas DataFrame and store it
+                if data:
+                    self.historical_data[asset] = pd.DataFrame(data).set_index("date")
+                    logger.info(f"Retrieved data for {asset}.")
+                else:
+                    logger.warning(f"Warning: No data found for {asset}.")
+
+        except Exception as e:
+            logger.error(f"An error occurred while fetching data from Bloomberg: {e}")
+        finally:
+            session.stop()
+
+    def get_asset_data(
+        self,
+        scope: str = 'all',
+        assets: Optional[List[str]] = None
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Retrieves historical data based on the specified scope.
+
+        Args:
+            scope (str): The scope of data retrieval. Options:
+                - 'all': Retrieve data for all assets.
+                - 'initial': Retrieve data only for the initial portfolio.
+                - 'hedge': Retrieve data only for the hedge constituents.
+                - 'specified': Retrieve data for specific assets provided via the 'assets' parameter.
+            assets (Optional[List[str]]): A list of specific asset identifiers to retrieve data for.
+                This parameter is only used when scope is 'specified'.
+
+        Returns:
+            Dict[str, pd.DataFrame]: A dictionary mapping asset identifiers to their historical data DataFrames.
+
+        Raises:
+            ValueError: If invalid scope is provided or assets are not specified when scope is 'specified'.
+        """
+        scope = scope.lower()
+        if scope not in ['all', 'initial', 'hedge', 'specified']:
+            raise ValueError("Invalid scope provided. Choose from 'all', 'initial', 'hedge', or 'specified'.")
+
+        if scope == 'all':
+            return self.historical_data
+
+        elif scope == 'initial':
+            initial_assets = [pos.identifier for pos in self.parameters.initial_portfolio.positions]
+            return {asset: self.historical_data[asset] for asset in initial_assets if asset in self.historical_data}
+
+        elif scope == 'hedge':
+            hedge_assets = self.parameters.hedge_constituents
+            return {asset: self.historical_data[asset] for asset in hedge_assets if asset in self.historical_data}
+
+        elif scope == 'specified':
+            if not assets:
+                raise ValueError("Assets must be specified when scope is set to 'specified'.")
+            return {asset: self.historical_data[asset] for asset in assets if asset in self.historical_data}
+
+    def __str__(self):
+        """
+        Provides a summary of the retrieved historical data.
+        """
+        lines = []
+        lines.append("=== Sample Data Summary ===")
+        lines.append(f"Total Assets Retrieved: {len(self.historical_data)}")
+        lines.append("")
+        for asset, data in self.historical_data.items():
+            start = data.index.min().date()
+            end = data.index.max().date()
+            records = len(data)
+            lines.append(f"{asset}: {records} records from {start} to {end}")
+        return "\n".join(lines)
