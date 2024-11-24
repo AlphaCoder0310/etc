@@ -1,0 +1,38 @@
+TLDR
+1. compute z-scores
+2. residual normality
+  2.1. use Q-Q plots to visually inspect normality
+  2.2. 
+
+When working with financial asset return data, outsized moves (outliers) are common due to the nature of the data, such as market shocks or extreme price movements. 
+
+Winsorizing can be a useful technique to reduce the influence of such outliers and make the residuals closer to a normal distribution, which is one of the key assumptions of OLS regression.
+
+1. Typical Winsorization Levels
+Common thresholds for winsorizing financial data are at the 1st and 99th percentiles or 5th and 95th percentiles of the data.
+1% Winsorization (1st and 99th percentiles): Mild adjustment that retains most of the data's characteristics but trims extreme outliers.
+5% Winsorization (5th and 95th percentiles): More aggressive adjustment that reduces the influence of a larger set of extreme values.
+The choice between 1% and 5% depends on how heavy-tailed your data is. Financial returns often exhibit fat tails (leptokurtosis), so larger adjustments (like 5%) may sometimes be necessary.
+
+2. Empirical Rule for Normality
+To assess how much to winsorize, you can:
+
+Compute the z-scores of your data to identify how far each observation deviates from the mean in terms of standard deviations.
+Based on the empirical rule:
+Approximately 99.7% of data from a normal distribution falls within ±3 standard deviations.
+Winsorizing anything beyond ±3 standard deviations is often reasonable.
+For financial data, you may also consider ±4 or ±5 standard deviations to account for the fat tails, but this depends on how much deviation from normality you are willing to accept.
+
+3. Assess Residual Normality
+After winsorizing, evaluate how well the residuals conform to a normal distribution:
+
+Use Q-Q plots to visually inspect normality.
+Perform normality tests (e.g., Shapiro-Wilk, Kolmogorov-Smirnov, or Jarque-Bera) to quantify how close the residuals are to normality.
+If the residuals are still highly non-normal, consider alternative adjustments (e.g., robust regression methods).
+
+4. Tailoring Winsorization to Your Data
+The exact level of winsorization depends on your dataset's characteristics:
+
+Heavy-tailed distributions: If your data exhibits extreme kurtosis or skewness, more aggressive winsorization (e.g., 5th and 95th percentiles) may be necessary.
+Moderate outliers: If the data is reasonably well-behaved with only a few outliers, mild winsorization (e.g., 1st and 99th percentiles) could suffice.
+Plot a histogram or kernel density estimate (KDE) of your data to visually determine how extreme the tails are.
