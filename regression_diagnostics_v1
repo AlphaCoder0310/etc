@@ -1,0 +1,257 @@
+3. Regression Diagnostics
+This function calculates diagnostic statistics for your regression results.
+
+import statsmodels.api as sm
+
+def regression_diagnostics(y, predictions):
+    """
+    Perform regression diagnostics including Omnibus test, Jarque-Bera, skew, kurtosis, 
+    Durbin-Watson, and Condition Number.
+
+    Parameters:
+        y (pd.Series): Actual target values.
+        predictions (np.ndarray): Predicted values from the model.
+
+    Returns:
+        dict: A dictionary of diagnostic metrics.
+    """
+    residuals = y - predictions
+    
+    # Omnibus Test
+    omnibus, prob_omnibus = sm.stats.omni_normtest(residuals)
+    
+    # Jarque-Bera Test
+    jarque_bera, prob_jb, skew, kurtosis = sm.stats.jarque_bera(residuals)
+    
+    # Durbin-Watson Test
+    durbin_watson = sm.stats.durbin_watson(residuals)
+    
+    # Condition Number
+    cond_number = np.linalg.cond(np.column_stack([np.ones(len(y)), predictions]))  # Add intercept for condition number
+    
+    return {
+        "Omnibus": omnibus,
+        "Prob(Omnibus)": prob_omnibus,
+        "Jarque-Bera": jarque_bera,
+        "Prob(JB)": prob_jb,
+        "Skew": skew,
+        "Kurtosis": kurtosis,
+        "Durbin-Watson": durbin_watson,
+        "Condition Number": cond_number
+    }
+
+# Example for diagnostics
+predictions = np.dot(Z, np.array(list(coef_dict.values())).reshape(-1, 1))  # Predictions from your orthogonalized regression
+diagnostics = regression_diagnostics(y, predictions.flatten())
+print(diagnostics)
+
+4. Multiple Regression Results
+This function summarizes regression results, similar to what statsmodels.summary() provides.
+
+def summarize_regression(y, predictions, coef_dict):
+    """
+    Summarize multiple regression results, including R-squared, adjusted R-squared, 
+    F-statistic, and AIC/BIC.
+
+    Parameters:
+        y (pd.Series): Actual target values.
+        predictions (np.ndarray): Predicted values from the model.
+        coef_dict (dict): Regression coefficients.
+
+    Returns:
+        dict: A dictionary of regression summary metrics.
+    """
+    n = len(y)  # Number of observations
+    p = len(coef_dict)  # Number of predictors
+    residuals = y - predictions
+
+    # R-squared
+    ss_total = np.sum((y - np.mean(y)) ** 2)
+    ss_residual = np.sum(residuals ** 2)
+    r_squared = 1 - (ss_residual / ss_total)
+
+    # Adjusted R-squared
+    adj_r_squared = 1 - ((1 - r_squared) * (n - 1) / (n - p - 1))
+
+    # F-statistic
+    ms_model = (ss_total - ss_residual) / p  # Mean square for the model
+    ms_error = ss_residual / (n - p - 1)  # Mean square for error
+    f_statistic = ms_model / ms_error
+
+    # AIC and BIC
+    aic = n * np.log(ss_residual / n) + 2 * p
+    bic = n * np.log(ss_residual / n) + p * np.log(n)
+
+    return {
+        "R-squared": r_squared,
+        "Adjusted R-squared": adj_r_squared,
+        "F-statistic": f_statistic,
+        "AIC": aic,
+        "BIC": bic
+    }
+Usage Example:
+
+regression_summary = summarize_regression(y, predictions.flatten(), coef_dict)
+print(regression_summary)
+
+5. Integration Example with Your Function
+# Winsorize the predictors
+winsorized_X = winsorize_outliers(X)
+
+# Fit orthogonalized regression
+coef_dict, z_vectors = successive_orthogonalization(winsorized_X, y)
+
+# Predictions using orthogonalized regression
+Z = np.hstack(z_vectors)
+predictions = np.dot(Z, np.array(list(coef_dict.values())).reshape(-1, 1))
+
+# Run diagnostics
+diagnostics = regression_diagnostics(y, predictions.flatten())
+regression_summary = summarize_regression(y, predictions.flatten(), coef_dict)
+
+# Explore data
+plot_clustermap(winsorized_X)
+plot_correlation_matrix(winsorized_X)
+plot_boxplots(winsorized_X)
+
+# Output results
+print("Regression Diagnostics:", diagnostics)
+print("Regression Summary:", regression_summary)
+
+6. AIC and BIC
+
+Certainly! Let’s dive deeper into what **AIC (Akaike Information Criterion)** and **BIC (Bayesian Information Criterion)** are, how they are calculated, and how to interpret them in the context of model selection.
+
+---
+
+### **What Are AIC and BIC?**
+
+Both AIC and BIC are metrics used to evaluate and compare statistical models. They aim to balance the trade-off between **model fit** and **model complexity**:
+
+1. **Model Fit**: A model that fits the data well will have smaller residual errors.
+2. **Model Complexity**: Adding more predictors or parameters typically improves fit but risks overfitting. AIC and BIC penalize models for being overly complex to prevent overfitting.
+
+---
+
+### **AIC (Akaike Information Criterion)**
+
+- The formula for AIC is:
+
+  **AIC = -2 * log-likelihood + 2 * k**
+
+  Where:
+  - **log-likelihood** measures how well the model fits the data (higher is better).
+  - **k** is the number of parameters in the model (including the intercept).
+
+#### **Key Points About AIC**:
+- **Lower AIC values** indicate a better model.
+- AIC penalizes models with more parameters (higher `k`) to discourage overfitting.
+- It focuses on prediction accuracy, aiming to minimize the **information loss** when the model is used to represent the data.
+
+---
+
+### **BIC (Bayesian Information Criterion)**
+
+- The formula for BIC is:
+
+  **BIC = -2 * log-likelihood + k * log(n)**
+
+  Where:
+  - **n** is the number of observations (sample size).
+  - **log(n)** increases the penalty for additional parameters when the sample size is large.
+
+#### **Key Points About BIC**:
+- **Lower BIC values** indicate a better model.
+- Like AIC, BIC penalizes models with more parameters, but the penalty grows stronger as the sample size increases (because of the `log(n)` term).
+- BIC is more conservative than AIC—it tends to select simpler models with fewer parameters, especially when the dataset is large.
+
+---
+
+### **Differences Between AIC and BIC**
+
+| **Aspect**                | **AIC**                                     | **BIC**                                     |
+|---------------------------|---------------------------------------------|--------------------------------------------|
+| **Penalty for Complexity**| Lighter penalty (`2 * k`)                  | Heavier penalty (`k * log(n)`)             |
+| **Focus**                 | Prediction accuracy                        | Parsimony (selects simpler models)         |
+| **Use Case**              | When prediction accuracy is the priority   | When interpretability or model simplicity is important |
+| **Impact of Sample Size** | Less sensitive to the number of observations (`n`) | More sensitive to sample size (penalty term increases with `n`) |
+
+---
+
+### **How to Interpret AIC and BIC?**
+
+#### **1. Comparing Models**
+- AIC and BIC are **relative metrics**: the absolute values themselves do not carry much meaning. Instead, they are used to compare different models.
+- When comparing models:
+  - The model with the **lowest AIC or BIC** value is considered the "best" model for the given dataset.
+  - A difference of **10 or more** between two models' AIC or BIC values is considered significant, suggesting that the model with the lower value is substantially better.
+
+#### **2. Model Complexity and Overfitting**
+- **AIC**: Tends to select more complex models since its penalty for additional parameters is smaller.
+- **BIC**: Prefers simpler models, especially when the dataset is large, as the penalty for complexity grows with the sample size (`log(n)`).
+
+#### **3. Trade-Off Between Fit and Complexity**
+- AIC and BIC both balance fit and complexity, but they penalize complexity differently. Use AIC when you prioritize predictive accuracy, and use BIC when you prioritize model simplicity or interpretability.
+
+---
+
+### **Example to Illustrate AIC and BIC**
+
+Suppose you are fitting three models to a dataset with **100 observations**:
+
+| **Model**   | **Log-likelihood** | **Number of Parameters (k)** | **AIC**            | **BIC**            |
+|-------------|---------------------|------------------------------|--------------------|--------------------|
+| Model 1     | -150               | 3                            | 306                | 315.5              |
+| Model 2     | -140               | 5                            | 290                | 304.6              |
+| Model 3     | -135               | 10                           | 290                | 322.1              |
+
+#### Interpretation:
+1. **AIC**:
+   - Model 2 and Model 3 both have the lowest AIC (290), so they are equally good in terms of predictive accuracy.
+   - Model 1 is worse because its AIC is higher (306).
+
+2. **BIC**:
+   - Model 2 has the lowest BIC (304.6), so it is preferred when considering simplicity and avoiding overfitting.
+   - Model 3 is penalized more heavily for its complexity (BIC = 322.1), even though it has the same AIC as Model 2.
+
+#### Conclusion:
+- If your goal is **prediction accuracy**, you might choose **Model 2 or Model 3** based on AIC.
+- If your goal is **simplicity** or minimizing overfitting, you would choose **Model 2** based on BIC.
+
+---
+
+### **Practical Notes on AIC and BIC**
+1. **Use AIC for Predictive Models**:
+   - When your focus is on building models for prediction (e.g., machine learning tasks), AIC is more appropriate because it prioritizes accuracy over simplicity.
+
+2. **Use BIC for Explanatory Models**:
+   - When you care about interpreting the relationships between variables in your model, BIC is better because it selects simpler models that are easier to understand.
+
+3. **Large Sample Sizes**:
+   - For large datasets, BIC will generally favor simpler models because of the `log(n)` penalty, while AIC may still select more complex models.
+
+4. **Model Comparison Across Different Datasets**:
+   - AIC and BIC cannot be used to compare models built on different datasets. They are only valid for comparing models fitted on the **same dataset**.
+
+---
+
+### **How to Report AIC and BIC**
+
+When reporting AIC and BIC values in your analysis:
+- Always compare AIC and BIC across multiple models.
+- Highlight the model with the **lowest AIC/BIC**.
+- Mention whether you used AIC or BIC to prioritize predictive accuracy or simplicity.
+
+#### Example Report:
+> "Among the models considered, Model 2 had the lowest AIC (290) and BIC (304.6), indicating it provides the best balance of fit and complexity. While Model 3 had the same AIC, its higher BIC suggests that it is overly complex. Therefore, Model 2 is selected as the optimal model for this analysis."
+
+---
+
+### Summary of Key Takeaways:
+- **AIC and BIC are relative metrics** used to compare models.
+- **Lower values are better**, but the magnitude of the difference matters.
+- AIC is less conservative and emphasizes predictive accuracy.
+- BIC is more conservative and emphasizes model simplicity, especially with large datasets.
+- Use AIC for predictive tasks and BIC for simpler, explanatory models.
+
+Let me know if you'd like further clarification or examples!
