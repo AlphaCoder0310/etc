@@ -1,0 +1,76 @@
+Things to do
+1. Remove earnings dates from the training set
+2. Compute the hedge ratio / number of contracts use to hedge
+3. Compute the hedge effectiveness
+4. Compute for all the stocks in the list
+
+Converting the standardised regression coefficient back to the unstandardised beta
+
+1. Why the mean doesnt affect the conversion
+	A. Z = (X - mean(X)) / sd(X)
+	B. regression coefficients are not affected by centering
+		a. subtracting the mean (centering) affects the intercept in a regression model but does not affect the slope (the regression coefficient)
+		b. the slope only depends on the variability (standard deviation) and the relationship between the variables
+		c. centering does not change the correlation or covariance structure between the variables. thus, the mean plays no role in the slope coefficient when converting between standardised and unstandardised forms
+	C. scaling (dividing by standard deviation) dictates the change
+		a. the regression coefficient for the standardised variables reflects the relationship between the z-scores (unitless, mean 0, standard deviation 1)
+		b. to return to the unstandardised beta, all you need is the ratio of the original variables' standard deviations because the slope is tied to how much return A changes for a unit change in return B
+2. standardised beta in regression
+	A. beta_standardized = Cor(Return A, Return B)
+3. unstandardised beta 
+	A. beta_unstandardized = beta_standardized * (sd(Return A) / sd(Return B))
+4. what happens to the mean in practice?
+	A. the mean only shifts the baseline of the variables
+	B. in regression, this shift is captured by the intercept, not the slope
+	C. when you standardise, the intercept becomes 0 (since the mean of a standardised variable is 0)
+	D. in the unstandardised model, the intercept would adjust to account for the original means
+5. Recap of Why You Only Need Standard Deviations
+	A. The standardized beta is unitless and reflects the relationship between the variables' z-scores.
+	B. To return to the original scale, the slope must account for the scaling effect of the standard deviations of the original variables:
+		a. beta_unstandardized = beta_standardized * (sd(Return A) / sd(Return B))
+	C. The mean is irrelevant because it only affects the intercept, not the slope.
+6. Optimal hedge ratio
+	A. h = p sigma s / sigma f
+		a. proportion of the exposure that should optimally be hedged
+		b. sigma s, the standard deviation of delta(s)
+		c. sigma f, the standard deviation of delta(f)
+		d. p is the coefficient of correlation between delta(s) and delta(f)
+7. Optimal number of contracts
+	A. Qa size of position being hedged (units)
+	B. Qf size of one futures contract (units)
+	C. Va value of position being hedged (=sport price times Qa)
+	D. Vf value of one futures contract (=futures price times Qf)
+	E. Optimal number of contracts if no tailing adjustment
+		a. h * Qa / Qf
+	F. Optimal number of contracts after tailing adjustment to allow for daily settlement of futures
+		a. h * Va / Vf
+8. Hedging using index futures
+	A. To hedge the risk in a portfolio, the number of contracts that should be shorted is:
+		a. Beta * Va / Vf
+		b. Va is the current value of the portfolio
+		c. B is its beta
+		d. Vf is the current value of one futures ( = futures price times contract size )
+9. Hedge Effectiveness = 1 - Var(hedged) / Var(unhedged)
+	A. Var(hedged) is the variance of the daily log returns for the hedged portfolio.
+	B. Var(unhedged) is the variance of the daily log returns for the unhedged portfolio.
+	C. Prepare the Data:
+		a. You already have two lists:
+			1. unhedged_returns: daily log returns of the unhedged portfolio.
+			2. hedged_returns: daily log returns of the hedged portfolio.
+		b. Compute the variance of unhedged returns
+			1. # Sample variance (ddof=1)
+			2. variance = np.var(data, ddof=1)
+			3. 
+			4. print(f"Variance: {variance:.6f}")
+		c. Compute the variance of hedged returns
+			1. # Sample variance (ddof=1)
+			2. variance = np.var(data, ddof=1)
+			3. 
+			4. print(f"Variance: {variance:.6f}")
+			5. variances = df.var()
+	D. # Hedge effectiveness
+	E. hedge_effectiveness = 1 - (var_hedged / var_unhedged)
+	F. print(f"Hedge Effectiveness: {hedge_effectiveness:.4f}")
+10. Interpretation of Hedge Effectiveness
+	A. Higher values (closer to 1) indicate better hedge effectiveness, meaning the hedged portfolio significantly reduces variance compared to the unhedged portfolio.
+	B. Lower values (closer to 0) suggest the hedge is less effective at reducing variance. Negative values indicate the hedge might actually increase risk!
