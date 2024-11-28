@@ -1,0 +1,100 @@
+import numpy as np
+
+class SuccessiveOrthogonalizationRegression:
+    """
+    A class to perform linear regression using the successive orthogonalization method.
+    """
+    def __init__(self):
+        # To store the coefficients and orthogonalized predictors
+        self.coefficients_ = None
+        self.z_vectors_ = None
+        self.intercept_ = None
+
+    def fit(self, X, y):
+        """
+        Fit the successive orthogonalization regression model to the data.
+
+        Parameters:
+            X (np.ndarray or pd.DataFrame): Predictor variables (n_samples, n_features).
+            y (np.ndarray or pd.Series): Target variable (n_samples,).
+
+        Returns:
+            self: Fitted model.
+        """
+        # Ensure X and y are numpy arrays
+        X = np.array(X)
+        y = np.array(y).reshape(-1, 1)  # Reshape y for matrix operations
+
+        # Step A: Initialization
+        n, p = X.shape
+        z_vectors = []  # List to store orthogonalized predictors
+        z_vectors.append(np.ones((n, 1)))  # z0 = 1 (intercept)
+
+        # Step B: Orthogonalization Process
+        for j in range(p):
+            # Current predictor xj
+            xj = X[:, j].reshape(-1, 1)
+
+            # Regress xj on all previous z vectors
+            projection = np.zeros_like(xj)
+            for z in z_vectors:
+                # Calculate projection of xj onto z
+                blj_hat = (z.T @ xj) / (z.T @ z)  # <zl, xj> / <zl, zl>
+                projection += blj_hat * z
+
+            # Residual vector zj (xj minus its projections on previous z vectors)
+            zj = xj - projection
+
+            # Add zj to the list of z vectors
+            z_vectors.append(zj)
+
+        # Step C: Final Regression
+        Z = np.hstack(z_vectors)  # Combine all z vectors into a single matrix
+        coefficients = np.linalg.inv(Z.T @ Z) @ Z.T @ y  # Calculate regression coefficients
+
+        # Store results
+        self.coefficients_ = coefficients.flatten()  # Flatten to 1D array
+        self.z_vectors_ = z_vectors
+        self.intercept_ = self.coefficients_[0]  # Intercept is the first coefficient
+
+        return self
+
+    def predict(self, X):
+        """
+        Predict using the fitted model.
+
+        Parameters:
+            X (np.ndarray or pd.DataFrame): Predictor variables (n_samples, n_features).
+
+        Returns:
+            y_pred (np.ndarray): Predicted values (n_samples,).
+        """
+        if self.coefficients_ is None:
+            raise ValueError("The model has not been fitted yet. Call `fit` first.")
+
+        # Ensure X is a numpy array
+        X = np.array(X)
+
+        # Initialize predictions with the intercept
+        y_pred = np.full((X.shape[0], 1), self.intercept_)
+
+        # Add contributions from each orthogonalized predictor
+        for j in range(1, len(self.z_vectors_)):  # Skip the intercept (z0)
+            z_vector = self.z_vectors_[j]
+            coefficient = self.coefficients_[j]
+            y_pred += coefficient * z_vector
+
+        return y_pred.flatten()
+
+    def get_coefficients(self):
+        """
+        Get the coefficients of the fitted model.
+
+        Returns:
+            coefficients (dict): Regression coefficients for each predictor.
+        """
+        if self.coefficients_ is None:
+            raise ValueError("The model has not been fitted yet. Call `fit` first.")
+
+        coefficients = {f"z{i}": coeff for i, coeff in enumerate(self.coefficients_)}
+        return coefficients
