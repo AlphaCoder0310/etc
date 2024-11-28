@@ -27,6 +27,21 @@ It tests your strategy on multiple out-of-sample datasets, providing a more comp
 The iterative process ensures that the strategy adapts to new data over time, mimicking how a trader might refine their approach as market conditions evolve.
 Reduces the risk of overfitting by continuously exposing the strategy to fresh data.
 
+Example:
+Imagine you have 10 years of historical market data. Using walk-forward optimization, you might:
+
+Use the first 2 years as in-sample data to optimize the strategy.
+Test the strategy on the 3rd year (out-of-sample).
+Add the 3rd year to the in-sample data, re-optimize, and test on the 4th year.
+Repeat this process until all 10 years of data are used.
+
+Summary
+Both out-of-sample testing and walk-forward optimization are techniques to ensure a trading strategy is robust and not overfitted:
+
+Out-of-Sample Testing: Divides data into fixed in-sample and out-of-sample portions to evaluate performance on unseen data.
+Walk-Forward Optimization: Iteratively refines and tests the strategy as it progresses through data, simulating real-world adaptability and robustness over time.
+These methods are essential tools for traders and quantitative analysts to build strategies that can handle real-world market conditions.
+
 ----------------------------------------
 
 Heteroscedasticity in linear regression occurs when the variance of the residuals is not constant across all levels of the independent variable(s). This violates one of the key assumptions of the classical linear regression model and can lead to inefficient estimates and biased standard errors, affecting hypothesis testing and confidence intervals.
