@@ -1,0 +1,14 @@
+import blpapi
+
+# Example code to connect and request data
+session = blpapi.Session()
+session.start()
+session.openService("//blp/refdata")
+
+service = session.getService("//blp/refdata")
+request = service.createRequest("ReferenceDataRequest")
+request.getElement("securities").appendValue("RIC_NAME")  # Replace 'RIC_NAME'
+request.getElement("fields").appendValue("TICKER")
+
+# Send request and handle response
+session.sendRequest(request)
