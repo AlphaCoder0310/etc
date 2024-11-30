@@ -18,7 +18,63 @@ def create_bloomberg_session():
         raise Exception("Failed to open Bloomberg reference data service.")
     return session
 
-def get_historical_data(session, ticker, start_date, end_date):
+def ric_to_bbg_ticker(session, ric_name):
+    """
+    Convert a RIC (Reuters Instrument Code) to a Bloomberg ticker using Bloomberg API.
+    """
+    # Open Bloomberg Reference Data service
+    if not session.openService("//blp/refdata"):
+        print("Failed to open service //blp/refdata")
+        return None
+
+    service = session.getService("//blp/refdata")
+
+    # Create a ReferenceDataRequest
+    request = service.createRequest("ReferenceDataRequest")
+    request.getElement("securities").appendValue(ric_name)  # Input RIC
+    request.getElement("fields").appendValue("TICKER")      # Request Bloomberg Ticker
+
+    # Send the request
+    session.sendRequest(request)
+
+    # Process the response
+    try:
+        while True:
+            event = session.nextEvent(500)
+            for msg in event:
+                if event.eventType() in (blpapi.Event.RESPONSE, blpapi.Event.PARTIAL_RESPONSE):
+                    # Extract the Bloomberg Ticker
+                    data = msg.getElement("securityData").getValue(0)
+                    field_data = data.getElement("fieldData")
+                    if field_data.hasElement("TICKER"):
+                        ticker = field_data.getElementAsString("TICKER")
+                        print(f"Bloomberg Ticker for {ric_name}: {ticker}")
+                        return ticker
+                    else:
+                        print(f"No Bloomberg Ticker found for {ric_name}")
+                        return None
+            if event.eventType() == blpapi.Event.RESPONSE:
+                break
+    except Exception as e:
+        print(f"Error processing Bloomberg response: {e}")
+        return None
+
+def get_historical_data(session, ric_name, start_date, end_date):
+    """
+    Fetch historical data for a given RIC (Reuters Instrument Code).
+    The function will first convert the RIC to a Bloomberg ticker, then fetch historical data.
+    """
+    # Convert the RIC to Bloomberg ticker
+    ticker = ric_to_bbg_ticker(session, ric_name)
+    if ticker is None:
+        print(f"Failed to convert RIC {ric_name} to Bloomberg ticker.")
+        return None
+
+    # Open the Bloomberg Reference Data Service
+    if not session.openService("//blp/refdata"):
+        print("Failed to open service //blp/refdata")
+        return None
+
     # Open the Bloomberg Reference Data Service
     ref_data_service = session.getService("//blp/refdata")
     
