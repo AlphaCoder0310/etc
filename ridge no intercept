@@ -1,0 +1,15 @@
+from sklearn.linear_model import Ridge
+from sklearn.datasets import make_regression
+
+# Generate a sample dataset
+X, y = make_regression(n_samples=100, n_features=2, noise=10, random_state=42)
+
+# Create a Ridge regression model without intercept
+ridge_no_intercept = Ridge(alpha=1.0, fit_intercept=False)
+
+# Fit the model
+ridge_no_intercept.fit(X, y)
+
+# View the coefficients
+print("Coefficients (Beta):", ridge_no_intercept.coef_)
+print("Intercept (Beta_0):", ridge_no_intercept.intercept_)  # This will be 0
