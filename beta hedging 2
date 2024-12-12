@@ -1,0 +1,84 @@
+Presentation
+- overnight delta hedging
+- Market maker -> inventory risk / ideally no inventory by eod of day
+- Don’t want to take overnight risk / gap risk, our edge comes from market making activity during the day
+- To achieve that we usually hedge before close or at close during auction
+- To evaluate the hedge at end of day and assess whether further hedging using index futures is required for excess market risk
+- Hedge effectiveness 
+- R2 
+- Optimal contract
+- Real use cases 
+
+Script
+- Hi team, today I would like to give an update on the Overnight Delta Hedging project.
+- This project aims to assess and improve our existing end-of-day delta hedging process to better protect against overnight delta risk.
+
+Background and context
+- For some background and context, as a market making desk, we provide liquidity and naturally build inventory positions, exposing us to risks like delta and Vega
+- So large long or short delta positions can lead to significant losses from adverse price movements, especially during a rally or selloff or after major economic event
+- Which is why to manage this, we perform dynamic intraday hedging as well as end-of-day hedging to mitigate the remaining delta risk
+
+Objectives of the project
+- The objective of this project is to evaluate the remaining market risk exposure of the end-of-day hedged portfolio
+- And to determine the optimal number of futures contracts to buy or sell to mitigate any remaining market risks, taking futures as proxies for the market
+
+- To achieve this objective, I built a model to evaluate how well futures returns can explain and hedge the overnight portfolio’s returns
+
+Below are the key model and backtested outputs
+- (1) The model calculates the Beta to measure the portfolio’s sensitivity to market movements.
+    - Magnitude: the size of beta indicates the portfolio’s sensitivity to market changes
+        - Beta +1.2 the portfolio is expected to increase by 1.2% if the market market increases by 1%
+    - Sign: the sign of beta indicates the direction of the portfolio’s relationship with the market
+        - +Ve same direction
+    - Which are also used to calculate the optimal number of futures contract hedge based on this formula
+- (2) It also uses the R2 coefficient
+    - Interpreted as how much of the portfolio’s return variance can be explained by futures
+    - As well as the proportion of systematic or diversifiable market risk in the portfolio vs unsystematic risks
+    - It is performed on individuals stocks and averaged (weighted average)
+- (3) hedge effectiveness
+    - Hedge effectiveness, calculated through backtesting, evaluates how well the model's optimal hedging strategy reduced overnight delta risk
+    - This metric provides a practical measure of how well the hedging model performs in real-world conditions.
+
+How to interpret the model outputs
+1. Low R2 coefficient
+    1. The model is not good at explaining the portfolio's returns.
+Possible reasons include:
+    * Significant idiosyncratic risk (specific risk unrelated to the market).
+    * Poor choice of the market proxy (e.g., using an index or futures that don't align well with portfolio exposures).
+    * Nonlinear or unstable relationships between the portfolio and the hedging instrument.
+
+1. Medium to High R2 Coefficient + High hedge effectiveness
+    1. Indicates that the portfolio’s returns are strongly influenced by market risk (systematic risk), and the model successfully captures this relationship.
+    2. Futures or other hedging instruments can effectively reduce the residual market risk because there is a significant portion of market risk left to hedge.
+2. Medium to high R2 coefficient + low hedge effectiveness
+This can happen in long-short portfolios where:
+    * Market risks cancel out due to balanced long and short positions, leaving little residual market risk to hedge.
+    1. Even though the model accurately captures the relationship between individual stocks and the market (as reflected by a high R²), the portfolio itself has low market exposure, leading to low hedge effectiveness.
+1. In this case, the portfolio is already naturally hedged against market risk.
+
+Practical use cases
+1. Failed closing auction order
+    1. Quantifies how well the hedge mitigates unexpected overnight market risk after failing to execute orders during the closing auction
+2. Double checking a well-hedged portfolio
+    1. Verifies that the hedging strategy effectively neutralizes market risk and identifies any residual market risks.
+
+Practical Considerations for Hedging
+1. Highly Correlated Hedge Instruments:
+    1. HSI, HSCE, and HSTECH are highly correlated, causing high factor loadings (large positive/negative Betas cancel out, resulting in a small net effect).
+2. Mitigation with ridge regression
+    1. Ridge regression adds a penalization term to reduce extreme coefficients but cannot fully resolve the issue..
+3. Further mitigation with selection model and practical considerations
+    1. The selection model is an optimization process evaluates combinations of 3, 2, or 1 hedge instrument and selects the best based on:
+        1. Hedge Effectiveness: Measures reduction in market risk.
+        2. R² Coefficient: Ensures the model explains portfolio-market relationships.
+        3. Minimal Adjustments: Reduces transaction costs by limiting changes to existing futures positions.
+    2. The model balances risk reduction and cost efficiency to identify the most effective hedging strategy.
+
+Future Improvements and Extensions
+1. Market Regimes: Test hedge performance in uptrend, downtrend, and ranging markets.
+2. Exponential Smoothing: Assign greater weights to recent observations for better responsiveness.
+3. Foundation for Other Projects: Enable strategies like intraday lead-lag to address residual (non-market) risks.
+
+
+
+- Inventory limits -> set strict limits on the size of inventory they are allowed to hold, reducing exposure to large, risky positions
