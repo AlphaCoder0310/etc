@@ -1,0 +1,100 @@
+Presentation Final Version
+
+Script – Concise for Presentation
+
+Introduction
+* Hi team, today I’d like provide an update on the Overnight Delta Hedging project.
+* This project aims to assess and improve our end-of-day delta hedging process to better protect against overnight delta risk.
+
+Background and Context
+* As a market-making desk, we provide liquidity, naturally building inventory positions that expose us to delta and Vega risks.
+* Large delta positions, if unhedged, can lead to significant losses especially during events like market rallies, selloffs, or major economic announcements.
+* To manage this, we perform dynamic intraday hedging as well as end-of-day hedging to reduce delta risk.
+
+Objectives of the Project
+* Evaluate the remaining market risk in the end-of-day hedged portfolio.
+* Determine the optimal number of futures contracts to buy/sell to mitigate residual market risks
+    * Why futures, because it often used as market proxies
+    * It trades after trading hours
+* Which is achieved by building a model to measure how well futures returns hedge the portfolio’s overnight returns.
+
+Key Model and Backtested Outputs
+1. Beta Coefficient:
+    * Measures portfolio sensitivity to market movements.
+        * Magnitude: Beta +1.2 means a 1% market increase leads to a 1.2% portfolio increase.
+        * Sign: Indicates direction (+ve = same direction, -ve = opposite).
+    * Used to calculate the optimal hedge ratio for futures contracts.
+2. R² Coefficient:
+    * Explains how much of the portfolio’s return variance is due to the market (systematic risk).
+    * Highlights the split between systematic (hedgeable) and idiosyncratic (non-hedgeable) risks.
+    * Calculated for individual stocks and averaged 
+    * improvement -> (weighted by portfolio weight).
+3. Hedge Effectiveness:
+    * Backtested to evaluate how well the hedge reduced overnight delta risk.
+    * Provides a practical measure of the model’s real-world performance.
+
+How to Interpret Model Outputs
+1. Low R² Coefficient:
+    * Indicates poor model performance due to:
+        * Significant idiosyncratic risk.
+        * Poor market proxy or nonlinear relationships.
+2. Medium to High R² + High Hedge Effectiveness:
+    * The portfolio heavily influenced by market risk, and the hedge effectively reduces residual market risk because there is a significant portion of market risk left to hedge.
+3. Medium to High R² + Low Hedge Effectiveness:
+This can happen in long-short portfolios where:
+    * Market risks cancel out due to balanced long and short positions, leaving little residual market risk to hedge
+    * Portfolio is naturally hedged
+
+Practical / Live Use Cases
+1. Failed Closing Auction Order:
+    * Quantifies how well the hedge mitigates unexpected overnight risk if orders fail to execute.
+2. Double-Checking a Well-Hedged Portfolio:
+    * Verifies hedge effectiveness and identifies any residual risks.
+
+Practical Considerations
+1. Highly Correlated Hedge Instruments:
+    * HSI, HSCE, and HSTECH are highly correlated, leading to high factor loadings, where large positive/negative Betas cancel out, making the net effect small .
+2. Mitigation with Ridge Regression:
+    * Adds a penalty to reduce extreme coefficients, stabilizing the model, though not fully resolving the issue.
+3. Selection Model and Optimization:
+The model evaluates combinations of 3, 2, or 1 hedge instruments and selects the best based on:
+    * Hedge Effectiveness: Risk reduction.
+    * R² Coefficient: Statistical reliability.
+    * Minimal Adjustments: Lower transaction costs.
+
+    - Balances risk reduction and cost efficiency for the best hedging strategy.
+
+Future Improvements and Extensions
+1. Market Regimes: Test performance in uptrend, downtrend, and ranging markets. (Side Note: Ensures robustness across different market conditions.)
+2. Exponential Smoothing: Weight recent observations more heavily for better responsiveness. (Side Note: Improves responsiveness to changing market dynamics.)
+3. Foundation for Other Projects: Supports strategies like intraday lead-lag to address residual risks. (Side Note: Builds on this foundation for broader applications.)
+
+Summary for Presentation
+* Objective: Improve the end-of-day delta hedging process to better mitigate overnight delta risk using futures as market proxies.
+* Key Model Outputs:
+    1. Beta Coefficient: Measures portfolio sensitivity to market movements and calculates the optimal hedge ratio.
+    2. R² Coefficient: Explains how much of the portfolio’s risk is market-driven (systematic) vs idiosyncratic.
+    3. Hedge Effectiveness: Assesses how well the hedge reduces overnight risk, tested via backtesting.
+* Practical Considerations:
+    * Challenges: Correlated hedge instruments (HSI, HSCE, HSTECH) may result in high factor loadings.
+    * Mitigation: Use ridge regression and a selection model to optimize hedge combinations while balancing effectiveness, R², and transaction costs.
+* Use Cases:
+    1. Handling failed closing auction orders.
+    2. Verifying hedge effectiveness in well-hedged portfolios.
+* Future Improvements:
+    1. Test performance across different market regimes (uptrend, downtrend, ranging).
+    2. Use exponential smoothing to prioritize recent data.
+    3. Extend to other strategies like intraday lead-lag for residual risk management.
+This project strengthens risk management and lays the foundation for broader hedging and trading strategies.
+
+Share
+
+
+
+
+
+
+
+
+
+
