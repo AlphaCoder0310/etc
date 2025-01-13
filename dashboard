@@ -1,0 +1,138 @@
+# bash
+conda create --name myenv python=3.9
+conda activate myenv
+pip install pymongo pymongoarrow pandas pyarrow openpyxl
+
+# Import libraries
+from pymongoarrow.monkey import patch_all
+from pymongoarrow.api import find_pandas_all
+from pymongo import MongoClient
+import streamlit as st
+import plotly.express as px
+import plotly.graph_objects as go
+import pandas as pd
+import datetime import datetime, timedelta
+import time
+
+# Patch PyMongo to enable pymongoarrow
+patch_all()
+
+# MongoDB connection
+client = MongoClient("mongodb://localhost:27017/")
+db = client["your_database"]
+collection = db["your_collection"]
+
+# PART 1: Fetch initial data
+@st.cache_data(ttl=10)
+def get_initial_data():
+    # Query for data from today's 9:00 AM
+    query = {"timestamp": {"$gte": datetime.now().replace(hour=9, minute=0, second=0, microsecond=0)}}
+    return find_pandas_all(collection, query)
+
+# Fetch latest data (incremental retrieval)
+def get_latest_data(last_timestamp):
+    query = {"timestamp": {"$gt": last_timestamp}}
+    return find_pandas_all(collection, query)
+    
+# PART 3: Data processing and computation
+
+# Mapping DataFrame example (replace with your actual mapping DataFrame)
+mapping_df = pd.DataFrame({
+    "keyword_column": ["A", "B", "C"],
+    "mapped_value": [1, 2, 3]
+})
+
+# Cache data processing
+@st.cache_data(ttl=10)
+def process_data_cached(df, mapping_df):
+    # Add a new column using mapping
+    df['new_column'] = df['existing_column'].map(mapping_df.set_index('keyword_column')['mapped_value'])
+    
+    # Add a computed column
+    df['computed_column'] = df['existing_column'] * 2  # Example computation
+    
+    # Sort the data by timestamp in descending order
+    df = df.sort_values(by='timestamp', ascending=False)
+    
+    # Filter data into two groups
+    warrant_df = df[df['type'] == 'Warrant']
+    cbbcs_df = df[df['type'] == 'CBBCs']
+    
+    return warrant_df, cbbcs_df
+
+# PART 4: Build the Streamlit App
+
+# Streamlit app setup
+st.title("Warrants and CBBCs Activity Monitor")
+
+# Fetch initial data
+data = get_initial_data()
+
+# Set the initial last_timestamp to the current time (e.g., 9:20 AM if the app is running at that time)
+last_timestamp = datetime.now()
+
+# Process the initial data
+warrant_df, cbbcs_df = process_data_cached(data, mapping_df)
+
+# Create placeholders for dynamic updates
+col1, col2 = st.columns(2)  # Divide the page into two columns
+with col1:
+    warrant_placeholder = st.empty()  # Placeholder for Warrants
+with col2:
+    cbbcs_placeholder = st.empty()  # Placeholder for CBBCs
+
+
+# Display initial data
+with col1:
+    st.subheader("Warrants")
+    warrant_placeholder.dataframe(warrant_df)
+with col2:
+    st.subheader("CBBCs")
+    cbbcs_placeholder.dataframe(cbbcs_df)
+
+# Initialize previous DataFrames for comparison
+prev_warrant_df = warrant_df.copy()
+prev_cbbcs_df = cbbcs_df.copy()
+
+# Real-time updates
+while True:
+    # Update the running time as the new last_timestamp
+    current_time = datetime.now()
+    
+    # Fetch the latest data based on the current time
+    new_data = get_latest_data(last_timestamp)
+    
+    if not new_data.empty:
+        # Concatenate the new data to the existing data
+        data = pd.concat([data, new_data], ignore_index=True)
+        
+        # Reprocess the data
+        warrant_df, cbbcs_df = process_data_cached(data, mapping_df)
+        
+        # Check if warrant_df or cbbcs_df has changed
+        if not warrant_df.equals(prev_warrant_df) or not cbbcs_df.equals(prev_cbbcs_df):
+            # Update the displayed DataFrames only if there are changes
+            with col1:
+                warrant_placeholder.dataframe(warrant_df)
+            with col2:
+                cbbcs_placeholder.dataframe(cbbcs_df)
+
+            # Update the previous DataFrames for the next comparison
+            prev_warrant_df = warrant_df.copy()
+            prev_cbbcs_df = cbbcs_df.copy()
+    
+    # Update the last_timestamp to the current running time
+    last_timestamp = current_time
+    
+    # Wait for 10 seconds before the next update
+    time.sleep(10)
+
+# Optimize performance
+# 1. Indexing in MongoDB
+# 2. Use projection
+    # Always use a projection to retrieve only the fields you need. This reduces the amount of data transferred and improves performance
+# 3. Streamlit Caching
+    # Key features of @st.cache_data
+    # 3.1 Caching Results: The function's output is cached and reused as long as the inputs remain the same.
+    # 3.2 TTL (Time-to-Live): You can set a TTL (e.g., ttl=5 seconds) to force the cache to refresh periodically.
+    # 3.3 Reduces Redundant Computations: Prevents recalculating results that haven’t changed, saving time and resources.
