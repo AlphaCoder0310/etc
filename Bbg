@@ -1,0 +1,79 @@
+import blpapi
+from blpapi.session import Session
+from blpapi.sessionoptions import SessionOptions
+
+# Bloomberg server configurations
+def create_session():
+    options = SessionOptions()
+    options.serverHost = "localhost"  # Default Bloomberg API host
+    options.serverPort = 8194        # Default Bloomberg API port
+    return Session(options)
+
+def fetch_bdp_data(security, fields):
+    """
+    Fetch Bloomberg BDP (Bloomberg Data Point) for a given security and field(s).
+
+    Args:
+        security (str): The ISIN or ticker of the security.
+        fields (list): List of Bloomberg field codes to retrieve.
+
+    Returns:
+        dict: Dictionary with field names as keys and retrieved data as values.
+    """
+    # Start the session
+    session = create_session()
+    if not session.start():
+        raise Exception("Failed to start Bloomberg session")
+
+    # Open service for Bloomberg requests
+    if not session.openService("//blp/refdata"):
+        raise Exception("Failed to open Bloomberg refdata service")
+
+    # Access the refdata service
+    ref_data_service = session.getService("//blp/refdata")
+
+    # Create a request for Bloomberg Reference Data (RefDataRequest)
+    request = ref_data_service.createRequest("ReferenceDataRequest")
+    request.append("securities", security)  # Add the security (e.g., ISIN or ticker)
+
+    for field in fields:
+        request.append("fields", field)  # Add fields to request (e.g., NXT_PUT_DT, MATURITY)
+
+    # Send the request
+    session.sendRequest(request)
+
+    # Process response
+    response_data = {}
+    while True:
+        event = session.nextEvent()
+        for msg in event:
+            if event.eventType() == blpapi.Event.RESPONSE or event.eventType() == blpapi.Event.PARTIAL_RESPONSE:
+                security_data_array = msg.getElement("securityData")
+                for security_data in security_data_array.values():
+                    field_data = security_data.getElement("fieldData")
+                    for field in fields:
+                        if field in field_data:
+                            response_data[field] = field_data.getElementAsString(field)
+
+        if event.eventType() == blpapi.Event.RESPONSE:
+            break
+
+    # Stop the session
+    session.stop()
+    return response_data
+
+
+# Example Usage
+if __name__ == "__main__":
+    # Define the security (ISIN or ticker) and fields to fetch
+    security = "US1234567890"  # Replace with the actual ISIN
+    fields = ["NXT_PUT_DT", "MATURITY"]
+
+    # Fetch data
+    try:
+        data = fetch_bdp_data(security, fields)
+        print("Retrieved Data:")
+        for field, value in data.items():
+            print(f"{field}: {value}")
+    except Exception as e:
+        print(f"Error: {e}")
