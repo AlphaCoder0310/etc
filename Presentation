@@ -1,0 +1,182 @@
+Performance Measure Overview – Simplified
+1. Core Profitability Metrics
+Margin PnL
+Formula: Margin PnL = Daily Market Making PnL - Slippage PnL
+Reflects profit after accounting for slippage risks.
+Daily Market Making PnL
+Profit from market-making activities before slippage.
+Formula: Margin PnL + Slippage PnL
+Slippage PnL
+Loss due to delta risk from CBBC positions.
+2. Delta Hedging PnL
+Purpose:
+Offset slippage from CBBCs.
+Manage inventory risk without taking directional market bets.
+Key Principles:
+Risk-neutral: Only hedge existing delta exposure.
+No speculation: Focus is on minimizing slippage.
+End-of-Day Flattening: Always close delta positions by day end to eliminate overnight risk.
+Cross-Hedging: Use sector-correlated stocks when primary stock is flat.
+Cost Control: Avoid unnecessary stamp duty fees.
+Decision Factors:
+Orderflow, price action, volume, inventory, technical & sentiment analysis.
+Outcome:
+Positive: Delta Hedging PnL ≥ Slippage PnL → Effective hedging.
+Negative: Limited loss due to conservative execution.
+Goal: Capture >90% of Margin PnL.
+3. Daily Net PnL
+Formula: Daily Market Making PnL + Delta Hedging PnL
+Represents total daily profitability.
+4. Margin / X Management PnL
+Formula:
+Margin/X Management PnL = Net Quantity × (Margin – Margin at Start of Day)
+Net Quantity: Positive for buys, negative for sells.
+Purpose & Use Cases:
+Measures profitability from managing flow, especially with delta and latency arbitrageurs.
+Helps assess margin dynamics, pricing strategy effectiveness, and inventory turnover.
+Advantages:
+Captures how effective the team is at adjusting margins to capture flow and profit.
+Provides insights into flow quality and market responsiveness.
+Limitations & Challenges:
+Price Inelasticity Assumption:
+Assumes the same volume could be sold at start-of-day margin — often unrealistic due to:
+Market competition
+Demand fluctuations
+Trading behavior of participants
+Impact of Margin Adjustments:
+Lowering margin mid-day may increase sales and total PnL, even if margin PnL looks reduced.
+Penalizes competitive pricing strategies that aim to gain volume or market share.
+Selling More = Penalized:
+Selling greater volume at lower margins (due to competition) gets penalized under this model, even if it increases actual profit.
+Doesn’t account for strategic margin reductions to offset slippage and gap risks.
+Key Insight:
+Margin/X Management PnL is useful for flow analysis, but should not be the sole performance metric. It must be viewed alongside realized PnL and risk-adjusted returns.
+5. Selective Delta Hedging Strategy
+This strategy ensures optimal delta management while maximizing margin capture and minimizing unnecessary costs.
+Guiding Principle:
+Delta hedge only when it benefits overall PnL, especially in products where hedging doesn't hurt margins.
+A. Avoid Hedging High-Retail Participation Products
+Why?
+Retail traders are less price-sensitive, allowing for higher margins.
+Hedging these products may require lowering margins, reducing profitability.
+Impact:
+Preserves high-margin levels.
+Avoids unnecessary margin erosion.
+B. Prefer Hedging Price-Elastic Products
+Characteristics:
+High vol-arb or institutional participation.
+More sensitive to price changes.
+Easier to adjust delta positions without significant margin impact.
+Benefits:
+Efficient delta adjustment.
+Minimal penalty to margin/X PnL.
+Better balance between risk management and margin preservation.
+C. Strategic Outcome
+Optimizes Margin Capture:
+Keeps high-margin products untouched.
+Applies hedging where it’s most cost-effective.
+Improves Risk Control:
+Manages slippage and inventory risks without sacrificing profitability.
+Supports Flow Strategy:
+Aligns hedging with market participant behavior for better execution and results.
+
+5. Selective Delta Hedging Strategy
+Avoid Hedging High-Retail Products:
+These have high margins; hedging could harm profitability.
+Prefer Hedging Price-Elastic Products:
+Easier to adjust deltas without impacting margins.
+Minimizes slippage and enhances margin capture.
+
+6. Key Takeaways & Recommendations
+Use Multiple Metrics:
+Margin/X PnL offers flow insights but isn't sufficient alone.
+Focus on Realized Profits:
+Assess actual profits after slippage, margin changes, and flow dynamics.
+Adopt an Integrated View:
+Combine Margin PnL, Delta Hedging PnL, and Daily Net PnL for holistic performance tracking.
+
+6. Key Takeaways & Recommendations
+This section synthesizes the insights from the various metrics into a practical framework for evaluating and enhancing trading performance.
+
+1. Adopt a Holistic Performance Framework
+No single metric is sufficient:
+Each metric (Margin PnL, Delta Hedging PnL, Margin/X Management PnL) captures different dimensions of performance.
+Integrated Evaluation:
+Use Daily Net PnL for overall profitability.
+Use Margin PnL for understanding slippage efficiency.
+Use Delta Hedging PnL to assess risk management effectiveness.
+Use Margin/X Management PnL for pricing and flow strategy evaluation.
+Why this matters:
+This multidimensional view helps avoid misleading conclusions and ensures that short-term gains do not compromise long-term risk-adjusted performance.
+2. Focus on Realized Profitability Over Theoretical Models
+Go beyond Margin/X Management PnL assumptions:
+Challenge the price inelasticity assumption (i.e., assuming same volumes can be sold at start-of-day margins).
+Recognize that real-world market behavior, competition, and demand elasticity often require margin flexibility.
+Better performance indicators:
+Compare margins sold vs. margins bought back (realized spread).
+Evaluate if slippage and gap risks were adequately covered.
+Track margin retention rate (percentage of quoted margin captured as profit).
+Outcome:
+More accurate reflection of trading decisions and execution quality.
+Avoid penalizing profitable actions that lower theoretical PnL but optimize actual returns.
+3. Strategic Flow & Risk Management
+Selectively apply delta hedging:
+Hedge where it’s cost-efficient, especially in price-elastic products.
+Preserve high-margin opportunities by avoiding unnecessary hedging in retail-heavy flows.
+Align inventory and margin strategy:
+Use delta hedging not just for risk control, but to enhance margin capture by stabilizing inventory and enabling more consistent pricing.
+Consider sector correlations for cross-hedging to minimize stamp duty and optimize hedging costs.
+Balance turnover vs. margin:
+In competitive markets, slightly lower margins may increase turnover and net PnL.
+Be willing to accept lower margin per contract if it leads to better flow quality and higher total profit.
+4. Continuous Performance Refinement
+Regularly review hedging effectiveness:
+Compare slippage PnL vs. Delta Hedging PnL to validate strategy.
+Aim for delta hedging PnL ≥ slippage PnL to ensure effective execution.
+Monitor competitive positioning:
+Track how margin changes influence volume, market share, and client behavior.
+Adjust margin dynamically to balance profitability, competitiveness, and inventory risk.
+Leverage data-driven tools:
+Use analytics to monitor:
+Real-time margin capture
+Inventory exposure
+Slippage trends
+Trade execution quality
+5. Final Recommendation: Performance = Profitability + Risk Control
+True performance isn’t just about gross PnL — it’s about:
+How profit is generated (via smart margining and flow strategy)
+How risk is managed (via disciplined delta hedging)
+How sustainable the approach is (through inventory stability and client behavior)
+By combining margin discipline, delta control, and market responsiveness, you build a performance framework that is:
+Robust
+Scalable
+Resilient to market volatility
+
+7. Ultimate Performance Metrics
+Metric	Current	Change
+Daily Turnover	$200–500 million	10× increase
+Daily Absolute Delta	< $10 million USD	Tightly controlled
+Daily Net PnL	~$54,000	10× increase
+Daily Margin PnL	~$60,000	10× increase
+Margin Capture Rate	> 90%	High efficiency
+
+Key Drivers of Performance Success
+1. Organic Market Growth
+Increased Participation:
+Natural growth in activity from both retail investors and arbitrageurs has expanded the overall trading ecosystem, boosting turnover and liquidity.
+2. Product Expansion
+Higher Issuance of CBBCs:
+The increase in product issuance has aligned with rising market demand, creating more opportunities for trading and hedging.
+3. Sales & Marketing Initiatives
+Promotional and Awareness Campaigns:
+Focused marketing efforts by the sales team have played a key role in driving traffic and participation in key products.
+4. Strategic Product Focus
+Proactive Product Identification:
+The team has consistently identified and prioritized high-potential, high-turnover products, ensuring efficient allocation of inventory and hedging resources.
+5. Active Market-Making Style
+Aggressive, Positional, and Competitive Execution:
+A bold market-making approach — including taking positions, aggressively quoting, and competing on edge — has helped:
+Capture greater market share
+Maintain competitive standing among top dealers
+Maximize profitability without compromising on risk control
+6. Passive market-making is fundamentally flow-driven. Its success hinges on the presence of sufficient natural client activity
