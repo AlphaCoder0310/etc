@@ -91,7 +91,7 @@ def query_combined(collection, epoch_day, product_ric=None, start_time=None, end
             '$addFields': {
                 'counterpartyType': {
                     '$let': {
-                        'vars': {'cp': '$counterparty'},
+                        'vars': {'cp': {'$toLower': {'$trim': {'input': '$_id.counterparty'}}}},
                         'in': mapping_expr
                     }
                 }
@@ -103,10 +103,44 @@ def query_combined(collection, epoch_day, product_ric=None, start_time=None, end
                 **{
                     f"product_{product}": [
                         {'$match': {'_id.productRic': product}},
+                        # Calculate global totals first
+                        {
+                            '$group': {
+                                '_id': None,
+                                'globalTotalTrades': {'$sum': '$tradeCount'},
+                                'globalTotalVolume': {'$sum': '$totalQuantity'},
+                                'globalTimeRange': {
+                                    '$push': {
+                                        'first': '$firstTimestamp',
+                                        'last': '$lastTimestamp'
+                                    }
+                                },
+                                'docs': {'$push': '$$ROOT'}
+                            }
+                        },
+                        {'$unwind': '$docs'},
+                        {
+                            '$replaceRoot': {
+                                'newRoot': {
+                                    '$mergeObjects': [
+                                        '$docs',
+                                        {
+                                            'globalTotalTrades': '$globalTotalTrades',
+                                            'globalTotalVolume': '$globalTotalVolume',
+                                            'globalTimeRange': '$globalTimeRange'
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        # Then group by counterparty type
                         {
                             '$group': {
                                 '_id': '$counterpartyType',
                                 'productRic': {'$first': '$_id.productRic'},
+                                'globalTotalTrades': {'$first': '$globalTotalTrades'},
+                                'globalTotalVolume': {'$first': '$globalTotalVolume'},
+                                'globalTimeRange': {'$first': '$globalTimeRange'},
                                 'totalTrades': {'$sum': '$tradeCount'},
                                 'buyTrades': {'$sum': '$buyTradeCount'},
                                 'sellTrades': {'$sum': '$sellTradeCount'},
@@ -145,7 +179,10 @@ def query_combined(collection, epoch_day, product_ric=None, start_time=None, end
                             '$facet': {
                                 **{
                                     cp_type: [
-                                        {'$match': {'_id': cp_type}},
+                                        {'$match': {'$expr': {'$eq': [
+                                            {'$toLower': {'$trim': {'input': '$_id'}}},
+                                            {'$toLower': {'$trim': {'input': cp_type}}}
+                                        ]}}},
                                         {
                                             '$addFields': {
                                                 'metrics': {
@@ -168,13 +205,13 @@ def query_combined(collection, epoch_day, product_ric=None, start_time=None, end
                                                                             {
                                                                                 '$divide': [
                                                                                     {'$subtract': [
-                                                                                        {'$max': '$timeRange.last'},
-                                                                                        {'$min': '$timeRange.first'}
+                                                                                        {'$max': '$globalTimeRange.last'},
+                                                                                        {'$min': '$globalTimeRange.first'}
                                                                                     ]},
-                                                                                    60000  # ms to minutes
+                                                                                    60000
                                                                                 ]
                                                                             },
-                                                                            0.01667  # min 1 second
+                                                                            0.01667
                                                                         ]
                                                                     }
                                                                 ]
@@ -200,10 +237,10 @@ def query_combined(collection, epoch_day, product_ric=None, start_time=None, end
                                                     },
                                                     'participation': {
                                                         'byTrades': {
-                                                            '$divide': ['$totalTrades', {'$sum': '$totalTrades'}]
+                                                            '$divide': ['$totalTrades', '$globalTotalTrades']  # Use pre-calculated global
                                                         },
                                                         'byVolume': {
-                                                            '$divide': ['$totalVolume', {'$sum': '$totalVolume'}]
+                                                            '$divide': ['$totalVolume', '$globalTotalVolume']
                                                         }
                                                     }
                                                 }
@@ -255,22 +292,21 @@ def query_combined(collection, epoch_day, product_ric=None, start_time=None, end
                         'input': {'$objectToArray': '$$ROOT'},
                         'as': 'product',
                         'in': {
-                            'productRic': {'$substrBytes': ['$$product.k', 8, -1]},  # Remove "product_" prefix
+                            'productRic': {'$substrBytes': ['$$product.k', 8, -1]},
                             'counterparties': {
-                                '$arrayToObject': {
-                                    '$map': {
-                                        'input': {'$objectToArray': '$$product.v'},
-                                        'as': 'ct',
-                                        'in': {
-                                            'k': '$$ct.k',
-                                            'v': {
-                                                '$cond': [
-                                                    {'$gt': [{'$size': '$$ct.v'}, 0]},
-                                                    {'$arrayElemAt': ['$$ct.v', 0]},
-                                                    None  # Fallback for empty arrays
-                                                ]
+                                '$reduce': {
+                                    'input': '$$product.v',
+                                    'initialValue': {},
+                                    'in': {
+                                        '$mergeObjects': [
+                                            '$$value',
+                                            {
+                                                '$$this._id': {
+                                                    'metrics': '$$this.metrics',
+                                                    'counterparties': '$$this.counterparties'
+                                                }
                                             }
-                                        }
+                                        ]
                                     }
                                 }
                             }
@@ -281,43 +317,35 @@ def query_combined(collection, epoch_day, product_ric=None, start_time=None, end
         },
         {'$unwind': '$allProducts'},
         {'$replaceRoot': {'newRoot': '$allProducts'}},
-        # Final projection and cleanup
         {
             '$project': {
                 'productRic': 1,
                 'counterparties': {
                     '$arrayToObject': {
-                        '$map': {
-                            'input': {'$objectToArray': '$counterparties'},
-                            'as': 'ct',
-                            'in': {
-                                'k': '$$ct.k',
-                                'v': {
-                                    'metrics': {
-                                        'activity': {
-                                            'trades': {
-                                                'total': '$$ct.v.metrics.activity.trades.total',
-                                                'buy': '$$ct.v.metrics.activity.trades.buy',
-                                                'sell': '$$ct.v.metrics.activity.trades.sell',
-                                                'imbalance': {'$round': ['$$ct.v.metrics.activity.trades.imbalance', 4]},
-                                                'frequency': {'$round': ['$$ct.v.metrics.activity.trades.frequency', 2]}
-                                            },
-                                            'volume': {
-                                                'total': '$$ct.v.metrics.activity.volume.total',
-                                                'buy': '$$ct.v.metrics.activity.volume.buy',
-                                                'sell': '$$ct.v.metrics.activity.volume.sell',
-                                                'imbalance': {'$round': ['$$ct.v.metrics.activity.volume.imbalance', 4]},
-                                                'perTrade': {'$round': ['$$ct.v.metrics.activity.volume.perTrade', 0]}
-                                            }
-                                        },
-                                        'participation': {
-                                            'byTrades': {'$round': ['$$ct.v.metrics.participation.byTrades', 4]},
-                                            'byVolume': {'$round': ['$$ct.v.metrics.participation.byVolume', 4]}
+                        '$filter': {
+                            'input': {
+                                '$map': {
+                                    'input': {'$objectToArray': '$counterparties'},
+                                    'as': 'ct',
+                                    'in': {
+                                        'k': '$$ct.k',
+                                        'v': {
+                                            '$cond': [
+                                                {
+                                                    '$and': [
+                                                        {'$ne': ['$$ct.v', None]},
+                                                        {'$gt': [{'$size': {'$ifNull': ['$$ct.v.counterparties', []]}}, 0]}
+                                                    ]
+                                                },
+                                                '$$ct.v',
+                                                None
+                                            ]
                                         }
-                                    },
-                                    'counterparties': '$$ct.v.counterparties'
+                                    }
                                 }
-                            }
+                            },
+                            'as': 'ct',
+                            'cond': {'$ne': ['$$ct.v', None]}
                         }
                     }
                 },
