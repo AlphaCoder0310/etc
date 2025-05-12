@@ -74,14 +74,14 @@ def query_combined(collection, epoch_day, product_ric=None, start_time=None, end
                     'side': '$side'
                 },
                 'tradeCount': {'$sum': 1},
-                'buyTradeCount': {'$sum': {'$cond': [{'$eq': ['$side', 1]}, 1, 0]}},
-                'sellTradeCount': {'$sum': {'$cond': [{'$eq': ['$side', 2]}, 1, 0]}},
+                'buyTradeCount': {'$sum': {'$cond': [{'$eq': ['$_id.side', 1]}, 1, 0]}},
+                'sellTradeCount': {'$sum': {'$cond': [{'$eq': ['$_id.side', 2]}, 1, 0]}},
                 'totalQuantity': {'$sum': '$lastExecutedQuantity'},
                 'botSize': {'$first': '$botSize'},
                 'soldSize': {'$first': '$soldSize'},
                 'executedQuantity': {'$first': '$executedQuantity'},
-                'counterpartyBotSize': {'$sum': {'$cond': [{'$eq': ['$side', 1]}, '$lastExecutedQuantity', 0]}},
-                'counterpartySoldSize': {'$sum': {'$cond': [{'$eq': ['$side', 2]}, '$lastExecutedQuantity', 0]}},
+                'counterpartyBotSize': {'$sum': {'$cond': [{'$eq': ['$_id.side', 1]}, '$lastExecutedQuantity', 0]}},
+                'counterpartySoldSize': {'$sum': {'$cond': [{'$eq': ['$_id.side', 2]}, '$lastExecutedQuantity', 0]}},
                 'firstTimestamp': {'$min': '$timestamp'},
                 'lastTimestamp': {'$max': '$timestamp'}
             }
