@@ -4,19 +4,19 @@
       "$reduce": {
         "input": "$timeSeries",
         "initialValue": {
-          "cumulativeTrades": {},  // Stores {counterpartyType: totalTrades}
-          "processedSeries": []    // Final output with cumulative data
+          "cumulativeTrades": {},  $ Will store {counterpartyType1: total1, counterpartyType2: total2}
+          "processedSeries": []    $ Final output with cumulative data
         },
         "in": {
-          // Step 1: Get the current counterparty type from the timeSeries entry
+          $ Step 1: Store current counterparty type in a variable
           "currentCpType": "$$this.counterpartyType",
           
-          // Step 2: Calculate new cumulative total
+          $ Step 2: Calculate the new cumulative total
           "newTotal": {
             "$add": [
               {"$ifNull": [
                 {"$getField": {
-                  "field": "$$this.counterpartyType",
+                  "field": {"$literal": "$$this.counterpartyType"},
                   "input": "$$value.cumulativeTrades"
                 }},
                 0
@@ -25,18 +25,24 @@
             ]
           },
           
-          // Step 3: Update cumulativeTrades object
+          $ Step 3: Update cumulative trades object
           "updatedCumulative": {
             "$mergeObjects": [
               "$$value.cumulativeTrades",
-              {"$arrayToObject": [[{
-                "k": "$$this.counterpartyType",
-                "v": "$$newTotal"
-              }]]}
+              {
+                "$arrayToObject": [
+                  [
+                    {
+                      "k": {"$literal": "$$this.counterpartyType"},
+                      "v": "$$newTotal"
+                    }
+                  ]
+                ]
+              }
             ]
           },
           
-          // Step 4: Build the output document
+          $ Step 4: Build the output document
           "processedSeries": {
             "$concatArrays": [
               "$$value.processedSeries",
@@ -53,7 +59,7 @@
             ]
           },
           
-          // Step 5: Return the updated state
+          $ Step 5: Return updated state
           "cumulativeTrades": "$$updatedCumulative",
           "processedSeries": "$$processedSeries"
         }
