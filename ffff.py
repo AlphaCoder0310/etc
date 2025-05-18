@@ -8,56 +8,66 @@
           "processedSeries": []    // Final output with cumulative data
         },
         "in": {
-          // Step 1: Get current counterparty type
-          "currentCounterparty": "$$this.counterpartyType",
-          
-          // Step 2: Update cumulative trades for this counterparty
+          // Step 1: Update cumulative trades for this counterparty
           "updatedCumulative": {
-            "$mergeObjects": [
-              "$$value.cumulativeTrades",
-              {
-                "$arrayToObject": [
-                  [
-                    {
-                      "k": "$$this.counterpartyType",
-                      "v": {
-                        "$add": [
-                          {"$ifNull": [{"$getField": {"field": "$$this.counterpartyType", "input": "$$value.cumulativeTrades"}}, 0]},
-                          "$$this.current.trades"
-                        ]
-                      }
-                    }
-                  ]
-                ]
-              }
-            ]
-          },
-          
-          // Step 3: Build the output document
-          "processedSeries": {
-            "$concatArrays": [
-              "$$value.processedSeries",
-              [
-                {
-                  "$mergeObjects": [
-                    "$$this",
-                    {
-                      "cumulative": {
-                        "trades": {
-                          "$add": [
-                            {"$ifNull": [{"$getField": {"field": "$$this.counterpartyType", "input": "$$value.cumulativeTrades"}}, 0]},
-                            "$$this.current.trades"
-                          ]
-                        }
-                      }
-                    }
+            "$let": {
+              "vars": {
+                "cpType": "$$this.counterpartyType",
+                "currentTrades": "$$this.current.trades",
+                "previousTotal": {
+                  "$ifNull": [
+                    {"$getField": {
+                      "field": "$$this.counterpartyType",
+                      "input": "$$value.cumulativeTrades"
+                    }},
+                    0
                   ]
                 }
-              ]
-            ]
+              },
+              "in": {
+                "$mergeObjects": [
+                  "$$value.cumulativeTrades",
+                  {"$arrayToObject": [[{
+                    "k": "$$cpType",
+                    "v": {"$add": ["$$previousTotal", "$$currentTrades"]}
+                  }]]}
+                ]
+              }
+            }
           },
           
-          // Step 4: Return updated state
+          // Step 2: Build the output document
+          "processedSeries": {
+            "$let": {
+              "vars": {
+                "currentTotal": {
+                  "$add": [
+                    {"$ifNull": [
+                      {"$getField": {
+                        "field": "$$this.counterpartyType",
+                        "input": "$$value.cumulativeTrades"
+                      }},
+                      0
+                    ]},
+                    "$$this.current.trades"
+                  ]
+                }
+              },
+              "in": {
+                "$concatArrays": [
+                  "$$value.processedSeries",
+                  [{
+                    "$mergeObjects": [
+                      "$$this",
+                      {"cumulative": {"trades": "$$currentTotal"}}
+                    ]
+                  }]
+                ]
+              }
+            }
+          },
+          
+          // Step 3: Return updated state
           "cumulativeTrades": "$$updatedCumulative",
           "processedSeries": "$$processedSeries"
         }
