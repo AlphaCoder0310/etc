@@ -1,58 +1,59 @@
 {
   "$addFields": {
-    "counterpartySeries": {
+    "timeSeries": {
       "$reduce": {
         "input": "$timeSeries",
         "initialValue": {
-          "cumulativeData": {},
-          "processed": []
+          "cumulativeByCounterparty": {}, // Stores running totals per counterpartyType
+          "processedSeries": [] // Final output with cumulative data
         },
         "in": {
-          "cumulativeData": {
+          // Update cumulative totals for each counterparty
+          "cumulativeByCounterparty": {
             "$mergeObjects": [
-              "$$value.cumulativeData",
+              "$$value.cumulativeByCounterparty",
               {
                 "$arrayToObject": {
                   "$map": {
-                    "input": "$$this.counterparties",
-                    "as": "cp",
+                    "input": ["$$this"], // Process each time entry
+                    "as": "entry",
                     "in": {
-                      "k": "$$cp.counterpartyType",
+                      "k": "$$entry.counterpartyType",
                       "v": {
                         "trades": {
                           "$add": [
-                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.trades", 0]}, 0]},
-                            "$$cp.current.trades"
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$entry.counterpartyType.trades", 0]}, 0]},
+                            "$$entry.current.trades"
                           ]
                         },
                         "totalQuantity": {
                           "$add": [
-                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.totalQuantity", 0]}, 0]},
-                            "$$cp.current.totalQuantity"
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$entry.counterpartyType.totalQuantity", 0]}, 0]},
+                            "$$entry.current.totalQuantity"
                           ]
                         },
                         "buyTrades": {
                           "$add": [
-                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.buyTrades", 0]}, 0]},
-                            "$$cp.current.buyTrades"
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$entry.counterpartyType.buyTrades", 0]}, 0]},
+                            "$$entry.current.buyTrades"
                           ]
                         },
                         "sellTrades": {
                           "$add": [
-                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.sellTrades", 0]}, 0]},
-                            "$$cp.current.sellTrades"
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$entry.counterpartyType.sellTrades", 0]}, 0]},
+                            "$$entry.current.sellTrades"
                           ]
                         },
                         "buyVolume": {
                           "$add": [
-                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.buyVolume", 0]}, 0]},
-                            "$$cp.current.buyVolume"
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$entry.counterpartyType.buyVolume", 0]}, 0]},
+                            "$$entry.current.buyVolume"
                           ]
                         },
                         "sellVolume": {
                           "$add": [
-                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.sellVolume", 0]}, 0]},
-                            "$$cp.current.sellVolume"
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$entry.counterpartyType.sellVolume", 0]}, 0]},
+                            "$$entry.current.sellVolume"
                           ]
                         }
                       }
@@ -62,63 +63,55 @@
               }
             ]
           },
-          "processed": {
+          // Build the output with cumulative data
+          "processedSeries": {
             "$concatArrays": [
-              "$$value.processed",
+              "$$value.processedSeries",
               [
                 {
-                  "timeBin": "$$this.timeBin",
-                  "counterparties": {
-                    "$map": {
-                      "input": "$$this.counterparties",
-                      "as": "cp",
-                      "in": {
-                        "$mergeObjects": [
-                          "$$cp",
-                          {
-                            "cumulative": {
-                              "trades": {
-                                "$add": [
-                                  {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.trades", 0]}, 0]},
-                                  "$$cp.current.trades"
-                                ]
-                              },
-                              "totalQuantity": {
-                                "$add": [
-                                  {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.totalQuantity", 0]}, 0]},
-                                  "$$cp.current.totalQuantity"
-                                ]
-                              },
-                              "buyTrades": {
-                                "$add": [
-                                  {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.buyTrades", 0]}, 0]},
-                                  "$$cp.current.buyTrades"
-                                ]
-                              },
-                              "sellTrades": {
-                                "$add": [
-                                  {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.sellTrades", 0]}, 0]},
-                                  "$$cp.current.sellTrades"
-                                ]
-                              },
-                              "buyVolume": {
-                                "$add": [
-                                  {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.buyVolume", 0]}, 0]},
-                                  "$$cp.current.buyVolume"
-                                ]
-                              },
-                              "sellVolume": {
-                                "$add": [
-                                  {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeData.$$cp.counterpartyType.sellVolume", 0]}, 0]},
-                                  "$$cp.current.sellVolume"
-                                ]
-                              }
-                            }
-                          }
-                        ]
+                  "$mergeObjects": [
+                    "$$this",
+                    {
+                      "cumulative": {
+                        "trades": {
+                          "$add": [
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$this.counterpartyType.trades", 0]}, 0]},
+                            "$$this.current.trades"
+                          ]
+                        },
+                        "totalQuantity": {
+                          "$add": [
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$this.counterpartyType.totalQuantity", 0]}, 0]},
+                            "$$this.current.totalQuantity"
+                          ]
+                        },
+                        "buyTrades": {
+                          "$add": [
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$this.counterpartyType.buyTrades", 0]}, 0]},
+                            "$$this.current.buyTrades"
+                          ]
+                        },
+                        "sellTrades": {
+                          "$add": [
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$this.counterpartyType.sellTrades", 0]}, 0]},
+                            "$$this.current.sellTrades"
+                          ]
+                        },
+                        "buyVolume": {
+                          "$add": [
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$this.counterpartyType.buyVolume", 0]}, 0]},
+                            "$$this.current.buyVolume"
+                          ]
+                        },
+                        "sellVolume": {
+                          "$add": [
+                            {"$ifNull": [{"$arrayElemAt": ["$$value.cumulativeByCounterparty.$$this.counterpartyType.sellVolume", 0]}, 0]},
+                            "$$this.current.sellVolume"
+                          ]
+                        }
                       }
                     }
-                  }
+                  ]
                 }
               ]
             ]
@@ -126,5 +119,11 @@
         }
       }
     }
+  }
+},
+{
+  "$project": {
+    "timeSeries": "$timeSeries.processedSeries",
+    "_id": 0
   }
 }
