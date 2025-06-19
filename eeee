@@ -1,0 +1,195 @@
+# Step 1: Initialize empty DataFrame with all expected columns
+all_columns = [
+    'metadata.productRic', 'lastExecutedCounterparty', 'lastExecutedQuantity',
+    'netDelta', 'netVega', # ...add all columns you expect from your query
+    'type', 'counterparty', 'counterparty_type'
+    # you may add more depending on your pipeline/rules_df
+]
+queried_df = pd.DataFrame(columns=all_columns)
+
+# Prepare the mapping Series only once
+code2opt = pdt.set_index('code')['opt']
+cp2broker = brokerlist.set_index('lastExecutedCounterparty')['Broker']
+cp2type   = brokerlist.set_index('lastExecutedCounterparty')['Type']
+
+# Rules DataFrame
+rules_df = pd.DataFrame([
+    {'type': 'inOut',  'quantity': 3000000, 'vega': 1000, 'delta': 200000},
+    {'type': 'volArb', 'quantity': 5000000, 'vega': 1000, 'delta': 200000}
+])
+
+start_time = datetime.now().replace(hour=1, minute=30, second=0, microsecond=0)
+end_time = time(16, 0, 59)
+latest_id = None
+
+while datetime.now().time() < end_time:
+    match_stage_1 = {"timestamp": {"$gte": start_time}}
+
+    if latest_id:
+        match_stage_1["_id"] = {"$gt": latest_id}
+
+    project_stage = {
+        "timestamp": {
+            "$dateAdd": {
+                "startDate": "$timestamp",
+                "unit": "hour",
+                "amount": 8
+            }
+        },
+        # Map side: 0 -> 'Buy', 1 -> 'Sell'
+        "side": {
+            "$switch": {
+                "branches": [
+                    {"case": {"$eq": ["$side", 0]}, "then": "Buy"},
+                    {"case": {"$eq": ["$side", 1]}, "then": "Sell"}
+                ],
+                "default": "$side"  # fallback if not 0 or 1
+            }
+        },
+        "lastExecutedCounterparty": 1,
+        "lastExecutedQuantity": 1,
+        # netDelta calculation:
+        "netDelta": {
+            "$divide": [
+                {
+                    "$multiply": [
+                        "$delta",
+                        "$lastExecutedQuantity",
+                        {
+                            "$switch": {
+                                "branches": [
+                                    {"case": {"$eq": ["$side", 0]}, "then": 1},
+                                    {"case": {"$eq": ["$side", 1]}, "then": -1}
+                                ],
+                                "default": 1  # fallback if side is not 0 or 1
+                            }
+                        }
+                    ]
+                },
+                7.8
+            ]
+        },
+        # netVega calculation:
+        "netVega": {
+            "$divide": [
+                {
+                    "$multiply": [
+                        "$vega",
+                        "$lastExecutedQuantity",
+                        {
+                            "$switch": {
+                                "branches": [
+                                    {"case": {"$eq": ["$side", 0]}, "then": 1},
+                                    {"case": {"$eq": ["$side", 1]}, "then": -1}
+                                ],
+                                "default": 1  # fallback if side is not 0 or 1
+                            }
+                        }
+                    ]
+                },
+                7.8
+            ]
+        },
+        "lastExecutedPrice": 1,
+        "productRic": "$metadata.productRic",         # <--- promoted field
+        "underlyingRic": "$metadata.underlyingRic",    # <--- promoted field
+        "orderId": "$metadata.orderId",                # Promoted field
+        "underlyingSpot": 1,
+        "_id": 1,
+    }
+
+    group_stage = {
+        "$group": {
+            "_id": {
+                "timestamp": "$timestamp",
+                "productRic": "$productRic",
+                "orderId": "$orderId",
+                "side": "$side",
+                "lastExecutedCounterparty": "$lastExecutedCounterparty",
+                "underlyingRic": "$underlyingRic"
+            },
+            "lastExecutedQuantity": {"$sum": "$lastExecutedQuantity"},
+            "netDelta": {"$last": "$netDelta"},
+            "netVega": {"$last": "$vega"},
+            "lastExecutedPrice": {"$last": "$lastExecutedPrice"},
+            "underlyingSpot": {"$last": "$underlyingSpot"}
+        }
+    }
+    
+    match_stage_2 = {
+        "$match": {
+            "$or": [
+                {"netVega": {"$gte": 1000}},
+                {"netDelta": {"$gte": 200000}},
+                {"lastExecutedQuantity": {"$gte": 1000000}}
+            ]
+        }
+    }
+
+    flatten_stage = {
+        "$project": {
+            "_id": { "$toString": "$_id" },
+            "timestamp": {
+                "$dateToString": {
+                    "format": "%H%M%S",  # HourMinuteSecond, e.g. "154503"
+                    "date": "$_id.timestamp"
+                }
+            },
+            "productRic": "$_id.productRic",
+            "underlyingRic": "$_id.underlyingRic",
+            "side": "$_id.side",
+            "lastExecutedCounterparty": "$_id.lastExecutedCounterparty",
+            "lastExecutedQuantity": "$lastExecutedQuantity",
+            "netDelta": { "$toInt": "$netDelta" },
+            "netVega": { "$toInt": "$netVega" },
+            "lastExecutedPrice": "$lastExecutedPrice",
+            "underlyingSpot": "$underlyingSpot",
+        }
+    }
+
+
+    pipeline = [
+        {"$match": match_stage_1},
+        {"$project": project_stage},
+        group_stage,
+        match_stage_2,
+        flatten_stage,
+        {"$sort": {"timestamp": -1, "_id": -1}}
+    ]
+
+    results = list(collection.aggregate(pipeline))
+
+    df = pd.DataFrame(results)
+
+    if not df.empty:
+        
+        # Mapping
+        df['type'] = df['metadata.productRic'].map(code2opt)
+        df['counterparty'] = df['lastExecutedCounterparty'].map(cp2broker)
+        df['counterparty_type'] = df['lastExecutedCounterparty'].map(cp2type)
+
+        # Filtering
+        df = df.merge(rules_df, on='type', how='left', suffixes=('', '_rule'))
+
+        mask = (
+            (df['lastExecutedQuantity'] >= df['quantity']) |
+            (df['netVega'] >= df['vega']) |
+            (df['netDelta'] >= df['delta'])
+        )
+
+        df = df[mask]
+
+        df = df.drop(['quantity', 'vega', 'delta'], axis=1)
+
+        # Formatting
+        df['lastExecutedQuantity'] = df['lastExecutedQuantity'].map('{:,}'.format)
+        df['netDelta'] = df['netDelta'].map('{:,}'.format)
+        df['netVega'] = df['netVega'].map('{:,}'.format)
+
+        # --- Concatenate latest df at the TOP ---
+        queried_df = pd.concat([df, queried_df], ignore_index=True)
+        
+        if not queried_df.empty:
+            latest_id = queried_df.iloc[0]['_id']
+
+    time.sleep(5)  # Poll every 5 seconds
