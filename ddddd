@@ -1,0 +1,81 @@
+import dash
+from dash import html, dcc
+from dash.dependencies import Input, Output
+import dash.dash_table
+import plotly.graph_objs as go
+import random
+
+app = dash.Dash(__name__)
+
+app.layout = html.Div([
+    dcc.Interval(id='interval-component', interval=1*1000, n_intervals=0),
+
+    # Stack 1: Graph 1
+    html.Div([
+        html.H3("Stack 1: Random Data 1"),
+        dcc.Graph(id='live-graph-1')
+    ], style={'marginBottom': 40}),
+
+    # Stack 2: Graph 2
+    html.Div([
+        html.H3("Stack 2: Random Data 2"),
+        dcc.Graph(id='live-graph-2')
+    ], style={'marginBottom': 40}),
+
+    # Stack 3: DataTable 1
+    html.Div([
+        html.H3("Stack 3: Data Table for Graph 1"),
+        dash.dash_table.DataTable(
+            id='datatable-1',
+            columns=[{"name": "x", "id": "x"}, {"name": "y", "id": "y"}],
+            data=[],
+            style_table={'overflowX': 'auto'},
+            style_cell={'textAlign': 'center'},
+        )
+    ], style={'marginBottom': 40}),
+
+    # Stack 4: DataTable 2
+    html.Div([
+        html.H3("Stack 4: Data Table for Graph 2"),
+        dash.dash_table.DataTable(
+            id='datatable-2',
+            columns=[{"name": "x", "id": "x"}, {"name": "y", "id": "y"}],
+            data=[],
+            style_table={'overflowX': 'auto'},
+            style_cell={'textAlign': 'center'},
+        )
+    ])
+])
+
+@app.callback(
+    [
+        Output('live-graph-1', 'figure'),
+        Output('live-graph-2', 'figure'),
+        Output('datatable-1', 'data'),
+        Output('datatable-2', 'data'),
+    ],
+    [Input('interval-component', 'n_intervals')]
+)
+def update_graphs_and_tables(n):
+    # Graph 1 data
+    x1 = list(range(10))
+    y1 = [random.randint(0, 10) for _ in x1]
+    fig1 = {
+        'data': [go.Scatter(x=x1, y=y1, mode='lines+markers')],
+        'layout': go.Layout(title='Real-time Data 1')
+    }
+    table1 = [{'x': x, 'y': y} for x, y in zip(x1, y1)]
+
+    # Graph 2 data
+    x2 = list(range(10))
+    y2 = [random.randint(0, 20) for _ in x2]  # Different range for variety
+    fig2 = {
+        'data': [go.Scatter(x=x2, y=y2, mode='lines+markers', marker_color='red')],
+        'layout': go.Layout(title='Real-time Data 2')
+    }
+    table2 = [{'x': x, 'y': y} for x, y in zip(x2, y2)]
+
+    return fig1, fig2, table1, table2
+
+if __name__ == '__main__':
+    app.run(debug=True)
