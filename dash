@@ -1,0 +1,171 @@
+MainDashboard 
+ 
+Dash DataTable for displaying dataframes. 
+
+dcc.Interval for the periodic update (every second). 
+
+State and/or a dcc.Store for storing and sharing query results between callbacks. 
+
+ 
+
+Step 1: Example Query Functions 
+
+ 
+
+import pandas as pd 
+
+import numpy as np 
+
+import time 
+
+ 
+
+def query_func_1(): 
+
+    # Simulate a real query 
+
+    return pd.DataFrame({ 
+
+        "A": np.random.randint(0, 100, 5), 
+
+        "B": np.random.uniform(0, 1, 5) 
+
+    }) 
+
+  
+
+def query_func_2(): 
+
+    # Simulate a real query 
+
+    return pd.DataFrame({ 
+
+        "X": np.random.randint(0, 100, 5), 
+
+        "Y": np.random.uniform(0, 1, 5) 
+
+    }) 
+
+ 
+
+Step 2: Dash Layout 
+
+ 
+
+We’ll use two dash.dash_table.DataTable components, two dcc.Store to hold query results, and a single dcc.Interval for periodic updates. 
+
+ 
+
+import dash 
+
+from dash import html, dcc, dash_table, Output, Input, State, callback 
+
+import pandas as pd 
+
+import numpy as np 
+
+  
+
+app = dash.Dash(__name__) 
+
+  
+
+app.layout = html.Div([ 
+
+    dcc.Interval(id='interval', interval=1*1000, n_intervals=0),  # 1 second 
+
+  
+
+    dcc.Store(id='store-1'),   # For query 1 results 
+
+    dcc.Store(id='store-2'),   # For query 2 results 
+
+  
+
+    html.H3("Table 1"), 
+
+    dash_table.DataTable(id='table-1'), 
+
+  
+
+    html.H3("Table 2"), 
+
+    dash_table.DataTable(id='table-2'), 
+
+]) 
+
+ 
+
+@app.callback( 
+
+    Output('store-1', 'data'), 
+
+    Output('store-2', 'data'), 
+
+    Input('interval', 'n_intervals') 
+
+) 
+
+def update_store(n): 
+
+    df1 = query_func_1() 
+
+    df2 = query_func_2() 
+
+    # Convert dataframes to dict for serialization 
+
+    return df1.to_dict('records'), df2.to_dict('records') 
+
+ 
+
+@app.callback( 
+
+    Output('table-1', 'data'), 
+
+    Output('table-1', 'columns'), 
+
+    Input('store-1', 'data') 
+
+) 
+
+def update_table_1(data): 
+
+    if data is None or len(data) == 0: 
+
+        return [], [] 
+
+    columns = [{"name": i, "id": i} for i in data[0].keys()] 
+
+    return data, columns 
+
+  
+
+@app.callback( 
+
+    Output('table-2', 'data'), 
+
+    Output('table-2', 'columns'), 
+
+    Input('store-2', 'data') 
+
+) 
+
+def update_table_2(data): 
+
+    if data is None or len(data) == 0: 
+
+        return [], [] 
+
+    columns = [{"name": i, "id": i} for i in data[0].keys()] 
+
+    return data, columns 
+
+ 
+
+Summary 
+
+dcc.Interval triggers every second. 
+
+The interval callback fetches data (runs the queries) and saves results to dcc.Store. 
+
+DataTable callbacks update their tables when the Store data changes. 
