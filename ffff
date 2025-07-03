@@ -1,0 +1,119 @@
+Global Variables Placement 
+
+ 
+
+Outside app=Dash(__name__) 
+
+This is the usual and recommended practice. 
+
+Global variables like your database connection, DataFrames, or configuration objects are typically declared at the top-level of the script, before any callback or app initialisation. 
+
+ 
+
+Initialisation of queried_df and latest_id 
+
+Make sure these are defined at the top level before the first callback fires 
+
+ 
+
+Check that all globals exist 
+
+If you get a NameError for any of these 
+
+ 
+
+Empty DataFrame columns 
+
+If your initial DataFrame is empty, but your DataTable columns are set by queried_df.columns, that's OK. But if you later get new columns from Mongo, you must ensure the columns still match. 
+
+ 
+
+Callback Output Must Match Format 
+
+Dcc.Store expects a JSON-serialisable object. A DataFrame's .to_dict('records') is fine, but be sure  
+
+ 
+
+import dash 
+
+from dash import dcc, html, dash_table, Input, Output 
+
+import pandas as pd 
+
+  
+
+app = dash.Dash(__name__) 
+
+  
+
+all_columns = ['col1', 'col2'] 
+
+queried_df = pd.DataFrame(columns=all_columns) 
+
+latest_id = None 
+
+  
+
+app.layout = html.Div([ 
+
+    dcc.Interval(id='interval', interval=2*1000, n_intervals=0), 
+
+    dcc.Store(id='store-1'), 
+
+    dash_table.DataTable( 
+
+        id='table-1', 
+
+        columns=[{'name': col, 'id': col} for col in all_columns], 
+
+        data=[], 
+
+        page_size=5, 
+
+    ) 
+
+]) 
+
+  
+
+@app.callback( 
+
+    Output('store-1', 'data'), 
+
+    Input('interval', 'n_intervals') 
+
+) 
+
+def update_store(n): 
+
+    global queried_df 
+
+    # Simulate new data 
+
+    queried_df = pd.DataFrame([{'col1': n, 'col2': n*2}]) 
+
+    return queried_df.to_dict('records') 
+
+  
+
+@app.callback( 
+
+    Output('table-1', 'data'), 
+
+    Input('store-1', 'data') 
+
+) 
+
+def update_table(data): 
+
+    if data is None or len(data) == 0: 
+
+        return [] 
+
+    return data 
+
+  
+
+if __name__ == '__main__': 
+
+    app.run(debug=True, port=1113) 
