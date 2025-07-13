@@ -1,0 +1,157 @@
+MASKS = [
+    {
+        'reason': 'idx_nearKO',
+        'underlyingRic_in': ['.HSI', '.HSTECH'],
+        'netQuantity_min': 1_000_000,
+        'barrierPct_max': 0.01,
+        'enabled': True
+    },
+    {
+        'reason': 'stk_nearKO',
+        'underlyingRic_notin': ['.HSI', '.HSTECH'],
+        'netQuantity_min': 1_000_000,
+        'barrierPct_max': 0.03,
+        'enabled': True
+    },
+    {
+        "reason": "All Conditions Example",
+        "enabled": True,
+        "counterparty_type": ["BANK", "BROKER"],
+        "underlying_in": ["AAPL", "MSFT", "GOOG"],
+        "underlying_notin": ["TSLA", "NFLX"],
+        "type": ["CALL", "PUT"],
+        "daysToExpiry_min": 5,
+        "daysToExpiry_max": 30,
+        "barrierPct_min": 0.9,
+        "barrierPct_max": 1.1,
+        "strikePct_min": 0.95,
+        "strikePct_max": 1.05,
+        "netQuantity_min": 1000,
+        "netQuantity_max": 100000,
+        "netDelta_min": -0.5,
+        "netDelta_max": 0.5,
+        "netVega_min": 100,
+        "netVega_max": 10000,
+        "pnl_min": -10000,
+        "pnl_max": 10000,
+        "slippage_min": 0,
+        "slippage_max": 50
+    }
+]
+
+def _aggregate_masks_vectorized(df, masks):
+    """Return only rows with at least one triggered mask, with all original columns + joined 'reason'."""
+    if not masks:
+        # No masks: return empty DataFrame with all original columns plus 'reason'
+        cols = list(df.columns) + ['reason']
+        return df.head(0).reindex(columns=cols)
+
+    # Stack mask arrays and reason strings
+    mask_arrays = [data['mask'] for data in masks.values()]
+    reasons = np.array([data['reason'] for data in masks.values()])
+    mask_matrix = np.column_stack(mask_arrays)
+
+    # Find which rows have at least one True (mask triggered)
+    has_alerts = mask_matrix.any(axis=1)
+    if not np.any(has_alerts):
+        # If no row triggered, return empty DataFrame (with columns)
+        cols = list(df.columns) + ['reason']
+        return df.head(0).reindex(columns=cols)
+
+    # Only process rows with at least one alert for efficiency
+    triggered_rows_idx = np.nonzero(has_alerts)[0]
+    triggered_mask_matrix = mask_matrix[triggered_rows_idx]
+
+    # Efficiently build the 'reason' column using np.where and list comprehensions
+    # For each triggered row, get the reasons where mask is True
+    triggered_reasons = [
+        '; '.join(reasons[row_mask])
+        for row_mask in triggered_mask_matrix
+    ]
+
+    # Build result DataFrame with all original columns + 'reason'
+    result = df.iloc[triggered_rows_idx].copy()
+    result['reason'] = triggered_reasons
+
+    result.reset_index(drop=True, inplace=True)
+    return result
+
+def create_compiled_mask_function(mask_defs):
+    def compiled_mask_applier(df):
+        masks = {}
+        vals = {col: df[col].values for col in df.columns}
+        for mask_def in mask_defs:
+            # counterparty_type: in list
+            if 'counterparty_type' in mask_def:
+                allowed = mask_def['counterparty_type']
+                mask &= np.isin(vals['counterparty_type'], allowed)
+
+            # underlying_in: in list
+            if 'underlying_in' in mask_def:
+                allowed = mask_def['underlying_in']
+                mask &= np.isin(vals['underlying'], allowed)
+
+            # underlying_notin: not in list
+            if 'underlying_notin' in mask_def:
+                not_allowed = mask_def['underlying_notin']
+                mask &= ~np.isin(vals['underlying'], not_allowed)
+
+            # type: in list
+            if 'type' in mask_def:
+                allowed = mask_def['type']
+                mask &= np.isin(vals['type'], allowed)
+
+            # daysToExpiry min/max
+            if 'daysToExpiry_min' in mask_def:
+                mask &= vals['daysToExpiry'] >= mask_def['daysToExpiry_min']
+            if 'daysToExpiry_max' in mask_def:
+                mask &= vals['daysToExpiry'] <= mask_def['daysToExpiry_max']
+
+            # barrierPct min/max
+            if 'barrierPct_min' in mask_def:
+                mask &= vals['barrierPct'] >= mask_def['barrierPct_min']
+            if 'barrierPct_max' in mask_def:
+                mask &= vals['barrierPct'] <= mask_def['barrierPct_max']
+
+            # strikePct min/max
+            if 'strikePct_min' in mask_def:
+                mask &= vals['strikePct'] >= mask_def['strikePct_min']
+            if 'strikePct_max' in mask_def:
+                mask &= vals['strikePct'] <= mask_def['strikePct_max']
+
+            # netQuantity min/max
+            if 'netQuantity_min' in mask_def:
+                mask &= vals['netQuantity'] >= mask_def['netQuantity_min']
+            if 'netQuantity_max' in mask_def:
+                mask &= vals['netQuantity'] <= mask_def['netQuantity_max']
+
+            # netDelta min/max
+            if 'netDelta_min' in mask_def:
+                mask &= vals['netDelta'] >= mask_def['netDelta_min']
+            if 'netDelta_max' in mask_def:
+                mask &= vals['netDelta'] <= mask_def['netDelta_max']
+
+            # netVega min/max
+            if 'netVega_min' in mask_def:
+                mask &= vals['netVega'] >= mask_def['netVega_min']
+            if 'netVega_max' in mask_def:
+                mask &= vals['netVega'] <= mask_def['netVega_max']
+
+            # pnl min/max
+            if 'pnl_min' in mask_def:
+                mask &= vals['pnl'] >= mask_def['pnl_min']
+            if 'pnl_max' in mask_def:
+                mask &= vals['pnl'] <= mask_def['pnl_max']
+
+            # slippage min/max
+            if 'slippage_min' in mask_def:
+                mask &= vals['slippage'] >= mask_def['slippage_min']
+            if 'slippage_max' in mask_def:
+                mask &= vals['slippage'] <= mask_def['slippage_max']
+            masks[mask_def['reason']] = {'mask': mask, 'reason': mask_def['reason']}
+        return _aggregate_masks_vectorized(df, masks)
+    return compiled_mask_applier
+
+mask_applier = create_compiled_mask_function(MASKS)
+result = mask_applier(df)
+print(result.head())
