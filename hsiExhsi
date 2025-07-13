@@ -1,0 +1,89 @@
+from dash import Input, Output, State
+import pandas as pd
+import datetime as dt
+
+@app.callback(
+    Output('hsi-graph', 'figure'),
+    Output('store-3', 'data'),
+    Input('store-2', 'data'),
+    State('store-3', 'data')
+)
+def update_hsi_graph(data, hsi_netDelta_data):
+    if data is None or len(data) == 0:
+        return {}, hsi_netDelta_data
+
+    dummy_df = pd.DataFrame(data)
+    hsi_netDelta_df = pd.DataFrame(hsi_netDelta_data)
+
+    # Filter for underlyingRic == '.HSI' and counterparty.type == 'ALL'
+    hsi_df = dummy_df[
+        (dummy_df['underlyingRic'] == '.HSI') &
+        (dummy_df['counterparty.type'] == 'ALL')
+    ]
+
+    # Calculate values
+    hsi_netDelta = hsi_df['netDelta'].sum()
+
+    hsi_netDelta_callBull = hsi_df[hsi_df['type'].isin(['call', 'bull'])]['netDelta'].sum()
+    hsi_netDelta_putBear  = hsi_df[hsi_df['type'].isin(['put', 'bear'])]['netDelta'].sum()
+
+    # hsi_netSlippage = hsi_df['slippage'].sum()
+    # hsi_netPnL = hsi_df['pnl'].sum()
+
+
+    latest_time = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    latest_data = {
+        'time': latest_time,
+        'netDelta': hsi_netDelta,
+        'netDelta_callBull': hsi_netDelta_callBull,
+        'netDelta_putBear': hsi_netDelta_putBear,
+        # 'netSlippage': hsi_netSlippage,
+        # 'netPnL': hsi_netPnL               
+    }
+
+    # Add latest data to existing hsi_netDelta_df
+    hsi_netDelta_df = pd.concat(
+        [hsi_netDelta_df, pd.DataFrame([latest_data])],
+        ignore_index=True
+    )
+
+    fig = go.Figure()
+
+    # HSI netDelta trace
+    fig.add_trace(go.Scatter(
+        x=hsi_netDelta_df['time'],
+        y=hsi_netDelta_df['netDelta'],
+        mode='lines+markers',
+        name='netDelta',
+        line=dict(color='blue', width=2),
+        marker=dict(size=5)
+    ))
+
+    # HSI netDelta_callBull trace
+    fig.add_trace(go.Scatter(
+        x=hsi_netDelta_df['time'],
+        y=hsi_netDelta_df['netDelta_callBull'],
+        mode='lines+markers',
+        name='netDelta_callBull',
+        line=dict(color='green', width=2), #dash='dash'
+        marker=dict(size=5)
+    ))
+
+    # HSI netDelta_putBear trace
+    fig.add_trace(go.Scatter(
+        x=hsi_netDelta_df['time'],
+        y=hsi_netDelta_df['netDelta_putBear'],
+        mode='lines+markers',
+        name='HSI netDelta put/bear',
+        line=dict(color='red', width=2), #dash='dot'
+        marker=dict(size=5)
+    ))
+
+    fig.update_layout(
+        xaxis=dict(title='Time'),
+        yaxis=dict(title='netDelta', showgrid=True),
+        template='plotly_white'
+    )
+
+    return fig, hsi_netDelta_df.to_dict('records')
