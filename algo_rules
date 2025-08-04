@@ -1,0 +1,69 @@
+Problem recap 
+
+Vol management 
+
+Vol mode 
+
+Margin mode 
+
+Issue 
+
+Charging vol decreases over time "decay in vol margin" 
+
+Vega-bleed 
+
+Arbitrageurs buy at a high vol margin 
+
+ 
+
+Vol Margin Decay Trap 
+
+When your vol margin decays, the product becomes very cheap (low implied vol). 
+
+This is great for both arbitrageurs and retail buyers (they get cheap vol), but it’s bad for you as the seller, because you’re not earning enough for the risk you’re warehousing. 
+
+If you try to raise the price (vol margin), the arbitrageurs will unwind, possibly at your expense 
+
+ 
+
+No-Win Situation 
+
+Cheap for all buyers, bad for you 
+
+Raising margin triggers arbitrageur unwind risk 
+
+Continue to sell cheap increase my risk and potential losses 
+
+ 
+
+Algorithmic Solutions and Business Rules 
+
+Set a minimum vol margin floor -> mix of outstanding + competitors' price 
+
+Never let your margin decay below your minimum risk-adjusted threshold, unless there is a high outstanding 
+
+Accept that sometimes you will be out of the market if competitors go below this level  
+
+Inventory-weighted decay (existing risk) 
+
+If your inventory is large or risk is high, slow or pause the decay 
+
+Tiered quoting / size limits 
+
+Offer small sizes at the decayed margin (to stay in the market, but cap your risk) 
+
+Widen spreads or increase margin for larger trades 
+
+Event-driven margin reset 
+
+Reset or increase margin only after a significant unwind or after arbitrageur positions roll off 
+
+Don’t reset margin while arbitrageurs are still long your product 
+
+Balance the risk to rewards (potential new flow vs unwinds) 
+
+Dynamic flow segmentation 
+
+Identify and treat retail and arbitrageurs flows differently 
+
+Market participation rules 
